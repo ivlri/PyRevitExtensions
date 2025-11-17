@@ -1,0 +1,17 @@
+#help_url: ''
+#highlight: updated 
+
+tooltip:
+  ru: Открывает последнюю версию шаблона АР,AC,КР
+
+engine:
+  clean: true
+title:
+  ru: >-
+    Шаблон АР,AC,КР
+    
+    
+
+
+context: zero-doc
+

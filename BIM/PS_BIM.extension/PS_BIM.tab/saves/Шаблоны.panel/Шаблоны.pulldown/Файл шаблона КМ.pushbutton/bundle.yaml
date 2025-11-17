@@ -1,0 +1,17 @@
+#help_url: '\\fs\public\Холдинг\ПоревитД\ТИМ\01_Библиотека\01_Рабочие задачи\KR_Арматура и жб'
+#highlight: updated 
+
+tooltip:
+  ru: Открывает последнюю версию шаблона КМ
+
+engine:
+  clean: true
+title:
+  ru: >-
+    Шаблон КМ
+    
+    
+
+
+context: zero-doc
+

@@ -1,0 +1,12 @@
+tooltip:
+  ru: Открывает ФХ в указанное время. Рекомендуется использовать для открытия ALL файлов утром.
+engine:
+  clean: true
+title:
+  ru: >-
+    Открытие  
+    
+    по таймеру
+
+context: zero-doc
+highlight: new

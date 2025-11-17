@@ -1,0 +1,10 @@
+tooltip:
+  ru: Инфо
+engine:
+  clean: true
+title:
+  ru: >-
+    ТЕСТ2
+
+context: zero-doc
+highlight: new

@@ -1,0 +1,397 @@
+# -*- coding: utf-8 -*-
+__title__   = "Обновить\nсемейства"
+__doc__ = """Описание: Функция обновления выбранных семейств из шаблона.
+
+Чтобы обновить нужные семейства, вы можете: 
+
+1) Выбрать в проекте/диспетчере задач нужные вам семейства/типы -> нажать на эту кнопку. Так можно обновить ЛЮБЫЕ семейства, главное, чтобы они были в шаблоне.   
+                                ИЛИ
+2) Сразу нажать на кнопку. Тогда вам самим придется выбирать семейства для загрузки из тех, что будут найдены в указанном  шаблоне. Если выбранного семейства нет в проекте - оно будет загружено, если уже есть, то семейство будет обновлено.
+
+Когда вы нажмете на кнопку, на экране появятся пошаговые инструкции. Просто следуйте им.
+"""
+#==================================================
+#IMPORTS
+#==================================================
+
+from Autodesk.Revit.DB import *
+from Autodesk.Revit.UI import *
+
+from pyrevit import forms
+from pyrevit import coreutils
+from pyrevit.framework import ObservableCollection
+from pyrevit.forms import TemplateListItem
+from rpw.ui.forms import (FlexForm, Label, ComboBox, TextBox, TextBox,
+                          Separator, Button,CheckBox, CommandLink, TaskDialog)
+
+import os
+import clr
+import re
+from collections import defaultdict
+clr.AddReference('System.IO')
+from pyrevit import script
+
+# import PSForms as forms
+output = script.get_output()
+
+doc   = __revit__.ActiveUIDocument.Document
+uidoc = __revit__.ActiveUIDocument
+app   = __revit__.Application
+selection = uidoc.Selection 
+
+# Имена для отображения в окне выбора 
+ANNTOTATION_KEYWORDS = ['Марка','Марки', 'Обозначения','Заголовки', 'Обозначение', 'Ссылка на вид', 
+                        'Основные надписи', 'Просмотр заголовков', 'Типовые аннотации', "части уровней"]
+NAMES_TO_SKIP = ['Граничные условия']
+#==================================================
+#Customization SelectFromList to return all values in a groups
+#==================================================
+
+
+def _list_options(self, option_filter=None):
+    if option_filter:
+        self.checkall_b.Content = 'Выбрать'
+        self.uncheckall_b.Content = 'Отменить'
+        self.toggleall_b.Content = 'Обратить'
+        # Get all items from all groups if context is a dict
+        if isinstance(self._context, dict):
+            self.all_items = [item for group in self._context.values() for item in group]
+        else:
+            self.all_items = self._context
+        # get a match score for every item and sort high to low
+        fuzzy_matches = sorted(
+            [(x,
+                coreutils.fuzzy_search_ratio(
+                    target_string=x.name,
+                    sfilter=option_filter,
+                    regex=self.use_regex))
+                for x in self.all_items],
+            key=lambda x: x[1],
+            reverse=True
+            )
+        # filter out any match with score less than 80
+        self.list_lb.ItemsSource = \
+            ObservableCollection[TemplateListItem](
+                [x[0] for x in fuzzy_matches if x[1] >= 80]
+                )
+    else:
+        self.checkall_b.Content = 'Выбрать все'
+        self.uncheckall_b.Content = 'Отменить все'
+        self.toggleall_b.Content = 'Обратить все'
+        self.list_lb.ItemsSource = \
+            ObservableCollection[TemplateListItem](self._get_active_ctx())
+
+forms.SelectFromList._list_options = _list_options
+
+def _get_options(self):
+    if self.multiselect:
+        if self.return_all:
+            return [x for x in self._get_active_ctx()]
+        else:
+            selected_items = []
+            if isinstance(self._context, dict):
+                for group_items in self._context.values():
+                    selected_items.extend(
+                        item for item in group_items
+                        if item.state or item in self.list_lb.SelectedItems
+                    )
+            else:
+                selected_items.extend(
+                    item for item in self._context
+                    if item.state or item in self.list_lb.SelectedItems
+                )
+            return self._unwrap_options(selected_items)
+    else:
+        return self._unwrap_options([self.list_lb.SelectedItem])[0]
+
+forms.SelectFromList._get_options = _get_options
+
+
+#==================================================
+#Classes
+#==================================================
+
+
+class FamilyLoadOptions(IFamilyLoadOptions):
+    'Класс для загрузки семейств'
+
+
+    def OnFamilyFound(self, familyInUse, overwriteParameterValues):
+        "Поведение при обнаружении семейства в модели"
+        global is_OverwriteParameter
+        overwriteParameterValues.Value = not is_OverwriteParameter
+        return True
+
+
+    def OnSharedFamilyFound(self, sharedFamily, familyInUse, source, overwriteParameterValues):
+        "Поведение при обнаружении в модели общего семейства"
+        global is_OverwriteParameter
+        overwriteParameterValues.Value = True
+        if not is_OverwriteParameter:
+            source.Value = FamilySource.Family
+        else: 
+            source.Value = FamilySource.Project
+        return True
+    
+
+#==================================================
+#FUNCTIONS
+#==================================================
+
+
+def find_latest_rvt_file(folder):
+    """Находит последний по дате файл с расширением .rvt, исключая резервные копии."""
+    rvt_files = []
+    
+    for file_name in os.listdir(folder):
+        if file_name.endswith('.rvt') and not re.search(r'\d{4}$', file_name):
+            full_path = os.path.join(folder, file_name)
+            file_time = os.path.getmtime(full_path)
+            rvt_files.append((full_path, file_time))
+
+    if not rvt_files:
+        return None
+
+    latest_file = max(rvt_files, key=lambda x: x[1])
+    return latest_file[0]
+
+
+def open_model(file_copy_path):
+    # ===== Настройка опций открытия =====
+    deatach_central = DetachFromCentralOption().DoNotDetach
+
+    wokset_config = WorksetConfiguration(WorksetConfigurationOption.OpenAllWorksets)
+
+    options = OpenOptions()
+    options.SetOpenWorksetsConfiguration(wokset_config)
+    options.DetachFromCentralOption = deatach_central
+
+    # ===== Попытка открыть файл =====
+    try:
+        ModelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(file_copy_path)
+        document = app.OpenDocumentFile(ModelPath, options)
+
+        return document
+    
+    except Exception as ex:
+        return False
+    
+
+#==================================================
+#MAIN
+#==================================================
+
+open_docs = []
+for i in app.Documents.ForwardIterator():
+    open_docs.append(i.Title.split('.rfa')[0])
+
+# ===== Выбрать семейства для обновления  =====
+select = []
+# for id in uidoc.Selection.GetElementIds():
+#     if type(doc.GetElement(id)) is FamilyInstance or type(doc.GetElement(id)) is IndependentTag:
+#         select.append(doc.GetElement(id).LookupParameter("Семейство").AsValueString())
+#     else:
+#         try:
+#             select.append(doc.GetElement(id).Family.Name)
+#         except:
+#             pass
+
+for id in uidoc.Selection.GetElementIds():
+    try:
+        select.append(doc.GetElement(id).LookupParameter("Семейство").AsValueString())
+    except:
+        select.append(doc.GetElement(id).Family.Name)
+    else:
+        pass
+        
+if select:
+    selects_symbol_names = set(select)
+    is_nt = True
+else:
+    selects_symbol_names = False
+    is_nt = False
+    
+# ===== Форма выбора шаблона =====
+components = [Label('Выберете шаблон для обновления семейства:'),
+            ComboBox('Select_file', {'Шаблон АР/АС': 'Шаблон АР/АС',
+                                    'Шаблон Окна/Двери':'Шаблон Окна/Двери',
+                                    'Шаблон КЖ': 'Шаблон КЖ',
+                                    'Шаблон КМ':'Шаблон КМ',
+                                    'Шаблон Отливы':'Шаблон Отливы'}),
+            CheckBox('OverwriteParameter', 'Загрузить без замены параметров?'),
+            Button('Подтвердить выбор')]
+form = FlexForm('Выбор шаблона', components)
+form.show()
+
+if form.values:
+    select_file = form.values['Select_file']
+
+    is_OverwriteParameter = form.values['OverwriteParameter']
+
+    # ===== ОТкрытие шабона и поиск семейст =====
+    file_pasths = {
+        'Шаблон АР/АС':r'\\fs\public\Холдинг\ПоревитД\ТИМ\01_Библиотека\01_Рабочие задачи\AR, KR_Шаблон', 
+        'Шаблон Окна/Двери':r'\\fs\public\Холдинг\ПоревитД\ТИМ\01_Библиотека\01_Рабочие задачи\AR_Архитектура семейства\Окна и двери', 
+        'Шаблон КЖ':r'\\fs\public\Холдинг\ПоревитД\ТИМ\01_Библиотека\01_Рабочие задачи\KR_Арматура и жб', 
+        'Шаблон КМ':r'\\fs\public\Холдинг\ПоревитД\ТИМ\01_Библиотека\01_Рабочие задачи\ALL_Изделия металлические',
+        'Шаблон Отливы':r'\\fs\public\Холдинг\ПоревитД\ТИМ\01_Библиотека\01_Рабочие задачи\ALL_Парапеты (отливы+костыли)'
+    }
+
+    folder_path = file_pasths[select_file]
+
+    file_to_open = find_latest_rvt_file(folder_path)
+    shab_doc = open_model(file_to_open)
+
+
+    # ===== Поиск всех семейств в проекте + фильтрация 
+    to_copy = []
+    shab_famly_symbols = FilteredElementCollector(shab_doc).OfClass(Family).ToElements()\
+    
+    param_values = {
+            fam: fam.Name
+            for fam in shab_famly_symbols
+        }
+
+    filtered_families = [
+            fam for fam, value in param_values.items() 
+            if value and ("PS_" in value or "ADSK_" in value)
+        ]
+    
+    # ===== Список всех родительских и вложеных вложеных семейств 
+    famly_insts = FilteredElementCollector(shab_doc).OfClass(FamilyInstance).ToElements()
+
+    filtered_families_inst = []
+    versions_families_inst = []
+    for famly_inst in famly_insts:
+        family = famly_inst.LookupParameter("Семейство").AsValueString()
+        if any(pref in family for pref in ['PS_', 'ADSK_']):
+            filtered_families_inst.append(famly_inst)
+            versions_families_inst.append('~№V:{}'.format('=)'))
+        
+    names_supcomps = []
+    for symb in filtered_families_inst:
+        for subcomp in symb.GetSubComponentIds():
+            fn = shab_doc.GetElement(subcomp).LookupParameter("Семейство").AsValueString()
+            if fn not in names_supcomps:
+                names_supcomps.append(fn)
+
+    #===== Сбора всех семейсвт проекта(без вложеных) 
+    if not selects_symbol_names:
+        familys_to_load = []
+        names_familys_toload = []
+        cattegorus_familys_toload = []
+        version_family = []
+
+        for i in filtered_families:
+            ind_to_vers = filtered_families.index(i)
+            shab_symbol_name = i.Name
+            if shab_symbol_name not in names_familys_toload and shab_symbol_name not in names_supcomps:
+                cat_name = i.FamilyCategory.Name
+                if any(to_skip not in cat_name for to_skip in NAMES_TO_SKIP):
+                    if any(keyword in cat_name for keyword in ANNTOTATION_KEYWORDS):
+                        cattegorus_familys_toload.append('Аннотации')
+                    else:
+                        cattegorus_familys_toload.append(cat_name)
+                    names_familys_toload.append(shab_symbol_name)
+                    familys_to_load.append(i)
+                    version_family.append(versions_families_inst[ind_to_vers])
+                        
+        # ===== Сборка правильного словаря для вывода
+        dict_names_to_select = defaultdict(list)
+        for key, value, vers in zip(cattegorus_familys_toload, names_familys_toload, version_family):
+            if value not in dict_names_to_select[key]:
+                dict_names_to_select[key].append(value + vers)
+
+        dict_name_file = defaultdict(list)
+        for family, name in zip(familys_to_load, names_familys_toload):
+            dict_name_file[name].append(family)  # Ключ - имя семейства, значение - список семейств
+
+        # output.print_md("## Список семейств в проекте")
+        # for family_name, family_objects in dict_name_file.items():
+        #     output.print_md("**{}:{}**".format(family_name, family_objects[0].Name))
+        #     # print(family_objects)
+
+        sorted_dict = defaultdict(list)
+        for key in sorted(dict_names_to_select):
+            sorted_dict[key] = sorted(dict_names_to_select[key], key=lambda x: x.split('~')[0])
+
+        # ===== Вывод окна =====
+        selects_symbol_names = forms.SelectFromList.show(sorted_dict,
+                    title='MultiGroup List',
+                    group_selector_title='Выберите категорию:',
+                    multiselect=True,
+                    button_name='Подтвердить выбор семейств!',
+                )
+        
+        
+        shab_familys_to_load = []
+        if selects_symbol_names:
+            selects_symbol_names = [i.split('~')[0] for i in selects_symbol_names]
+            shab_familys_to_load = [dict_name_file[i] for i in selects_symbol_names]
+            is_next = True
+
+        else:
+            forms.alert('Не выбраны семейства для обновления!')
+    else:
+        shab_familys_to_load = []
+        check = []
+        for i in shab_famly_symbols:
+            shab_symbol_name = i.Name
+            if shab_symbol_name in selects_symbol_names and shab_symbol_name not in check:
+                shab_familys_to_load.append(i)
+                check.append(shab_symbol_name)
+
+        # ===== Обработка семейств какторые небыли найдены в шаблоне =====
+        diff = set(selects_symbol_names) - set(check) 
+        is_next = True
+        if diff: 
+            commands= [CommandLink('Пропусить данные семейства и обновить остальные', return_value=True),
+            CommandLink('Завершить операцию', return_value=False)]
+            dialog = TaskDialog('{0} из {1} выбранных семейств не найдены в {2}. Возможно выбран не правильный шаблон или не совпали имена семейств:\n\n{3}'.format(len(diff),
+                                                                                                                                                                    len(selects_symbol_names),
+                                                                                                                                                                    select_file,
+                                                                                                                                                                    '\n'.join(diff)),
+                                title_prefix=False,
+                                content="Выберите дальнейшее действие!",
+                                commands=commands,
+                                show_close=True)
+
+            is_next = dialog.show()
+            shab_familys_to_load = set(shab_familys_to_load) - diff
+
+    to_close = []
+    try:
+        for name in selects_symbol_names:
+            if name in open_docs:
+                to_close.append(name)
+        if not to_close:
+            # ===== Открытие семейств и загрузка в проект =====
+            if is_next:
+                loaded_fam_name = []
+                if is_nt:
+                    lst = shab_familys_to_load
+                else:
+                    lst = sum(shab_familys_to_load, [])
+
+                for family_to_load in lst:
+                    doc_family_to_load = shab_doc.EditFamily(family_to_load)
+                    try:
+                        doc_family_to_load.LoadFamily(doc,FamilyLoadOptions())
+                        loaded_fam_name.append(family_to_load.Name)
+                    except Exception as ex:
+                        forms.alert(ex)
+                    finally:
+                        doc_family_to_load.Close(False)
+
+                if len(loaded_fam_name) == len(shab_familys_to_load):
+                    forms.alert('Cемейства загружены:\n\n{}'.format('\n'.join(loaded_fam_name)))
+                else:
+                    diff = set(selects_symbol_names) - set(loaded_fam_name)
+                    forms.alert('Не удалось загрузить семейства:\n\n{0}\n{1}'.format('\n'.join(diff),errors))
+
+            shab_doc.Close(False)
+
+        else:
+            forms.alert("Что бы обновить семейства, закройте файлы:\n{0}".format('\n'.join(to_close)))
+    except TypeError:
+        pass

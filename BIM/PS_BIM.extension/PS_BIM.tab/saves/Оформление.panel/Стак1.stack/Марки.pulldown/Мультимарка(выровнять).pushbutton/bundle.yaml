@@ -1,0 +1,5 @@
+context:
+  not_any:       
+    - active-3d-view
+    - active-sheet                                                               
+    - active-schedule 

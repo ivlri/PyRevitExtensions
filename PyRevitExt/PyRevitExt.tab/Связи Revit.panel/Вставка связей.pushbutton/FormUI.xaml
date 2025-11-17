@@ -1,0 +1,54 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av"
+        Title="Связи Revit" 
+        Height="260" Width="280"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        SizeToContent="WidthAndHeight">
+
+    <StackPanel Margin="10,10,10,0" VerticalAlignment="Top">
+        <Label Content="Выберите разделы:"/>
+        <!-- CheckBox -->
+        <StackPanel Orientation="Horizontal">
+            <CheckBox x:Name="UI_checkbox_1" Content="АР" Margin="0,0,10,0"/>
+            <CheckBox x:Name="UI_checkbox_2" Content="КР" Margin="0,0,10,0"/>
+            <CheckBox x:Name="UI_checkbox_3" Content="ОВ" Margin="0,0,10,0"/>
+            <CheckBox x:Name="UI_checkbox_4" Content="ВК" Margin="0,0,10,0"/>
+            <CheckBox x:Name="UI_checkbox_5" Content="ЭЛ" Margin="0,0,10,0"/>
+            <CheckBox x:Name="UI_checkbox_6" Content="BS" Margin="0,0,10,0"/>
+        </StackPanel>
+
+
+        <!-- Separator -->
+        <Separator Margin="0,10,0,0"/>
+
+        <!-- ComboBox -->
+         <Label Content="Выберите режим загрузки:"/>
+        <ComboBox x:Name="UI_combobox" HorizontalAlignment="Stretch" Margin="0,0,0,10" SelectedIndex="0">
+            <ComboBoxItem Content="По координатам"/>
+            <ComboBoxItem Content="По базовой точке"/>
+        </ComboBox>
+        <!-- CheckBox -->
+        <StackPanel Orientation="Horizontal">
+            <CheckBox x:Name="mode" Content="Использовать все площадки?" Margin="0,0,15,0"/>
+        </StackPanel>
+        <!-- Separator -->
+        <Separator Margin="0,10,0,0"/>
+
+        <!-- Label and TextBox -->
+        <!-- <DockPanel Margin="0,0,0,10"> -->
+        <Label Content="Закрыть наборы: (не затрагивает BS)" Height="25" DockPanel.Dock="Left"/>
+        <TextBox x:Name="UI_textbox_1" Height="25" Width="Auto" Text="00_,01_,02_,03_,Связь"  Margin="0,0,0,10"/>
+        <!-- </DockPanel> -->
+
+        <!-- Select All / Deselect All Buttons -->
+
+        <!-- Button -->
+        <Button Click="UIe_button_run" Content="Подтвердить!" Width="100" Height="25" Margin="0,0,0,10"/>
+
+    </StackPanel>
+
+
+</Window>
