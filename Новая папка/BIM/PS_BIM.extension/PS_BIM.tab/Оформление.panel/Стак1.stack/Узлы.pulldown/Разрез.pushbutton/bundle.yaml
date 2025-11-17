@@ -1,5 +1,0 @@
-context:
-  any:       
-    - active-drafting-view 
-    - active-plan-view                                                               
-    - active-legend             

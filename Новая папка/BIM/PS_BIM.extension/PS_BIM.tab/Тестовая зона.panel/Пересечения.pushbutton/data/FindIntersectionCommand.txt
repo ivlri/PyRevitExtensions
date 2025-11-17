@@ -1,3 +1,0 @@
-Пересечение\nиз XML
-Работа с отчетом о проверке на пересечения из Navisworks в формате XML
-https://docs.google.com/document/d/1aTYOlrMQa_PTjpuznLbcgra6wvDF0D1xz_W-b2EavcM/edit?usp=sharing
