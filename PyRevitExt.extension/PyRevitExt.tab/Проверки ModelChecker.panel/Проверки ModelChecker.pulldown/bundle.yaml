@@ -1,0 +1,18 @@
+tooltip:
+  ru: >-
+    Запуск проверок ModelChecker
+
+title:
+  ru: >-
+    Проверки  
+
+    ModelChecker
+layout:
+  - Проверка общая
+  - Проверка AR
+  - Проверка AR_Rooms
+  - Проверка AR_ПГС
+  - Проверка SC
+  - Проверка AS
+  - Проверка MEP
+

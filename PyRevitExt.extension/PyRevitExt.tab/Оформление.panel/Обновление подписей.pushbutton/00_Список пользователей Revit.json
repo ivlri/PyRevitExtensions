@@ -1,0 +1,27 @@
+{
+    "ALL":[
+           "userALL"
+        ],
+
+    "AR":[
+    		"user1",
+    		"user2"
+        ],
+
+    "SC":[
+    		"user5",
+    		"user1"
+        ],
+
+    "WSS":[
+    		"user7",
+    		"user6"
+        ],
+
+    "HVAC":[
+    		"user6",
+    		"user8"
+        ],
+
+    "ESS": ["user"]
+}
