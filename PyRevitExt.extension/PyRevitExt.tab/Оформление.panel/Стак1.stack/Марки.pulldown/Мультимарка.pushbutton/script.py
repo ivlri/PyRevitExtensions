@@ -109,7 +109,7 @@ def get_active_ui_view(uidoc, mark=None):
 
     if port and port.get_BoundingBox(view) is None: # Если BoundingBox - None, то значит вид активирован 
         # Переключаемся на временный вид чтобы "разблокировать" текущий
-        temp_view = doc.GetElement(ElementId(4641555))  # Ваш временный вид
+        temp_view = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()[0]
         uidoc.ActiveView = temp_view
         v1 = uidoc.ActiveView.Id
 
