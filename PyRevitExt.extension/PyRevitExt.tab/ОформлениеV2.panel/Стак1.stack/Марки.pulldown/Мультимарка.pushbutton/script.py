@@ -14,18 +14,6 @@ __doc__ = """
 Версия: 1.0
 Автор: David Medvedev 
 """
-
-#=== Исправления потери контекста pyrevit
-import pyrevit
-original_uiapp_property = pyrevit._HostApplication.uiapp
-ui_app = __revit__
-@property
-def custom_uiapp(self):
-    """Return UIApplication provided to the running command."""
-    return ui_app
-
-pyrevit._HostApplication.uiapp = custom_uiapp
-
 # ==================================================
 # IMPORTS
 # ==================================================
@@ -46,7 +34,6 @@ clr.AddReference("RevitAPIUI")
 import System.Windows.Forms
 from System.Collections.Generic import List
 from Autodesk.Revit.DB import *
-from Autodesk.Revit.Exceptions import InvalidOperationException
 from pyrevit import forms
 
 from functions._CustomSelections import CustomSelections
@@ -114,40 +101,16 @@ def get_active_ui_view(uidoc, mark=None):
     port_owner_view = None
     to_close = False
 
-    viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
-    port = next(iter(filter(lambda x: x.ViewId == view.Id, viewports)), None)
-    # for i in FilteredElementCollector(doc).OfClass(Viewport).ToElements():
-    #     if i.ViewId == view.Id:
-    #         port = i
-    #         port_owner_view = i.OwnerViewId
-    #         break
-    # print(port.Id, port.get_BoundingBox(view) is None)
-    try:
-        is_port_view = port.get_BoundingBox(view) is None
-    except:
-        is_port_view = False
+    for i in FilteredElementCollector(doc).OfClass(Viewport).ToElements():
+        if i.ViewId == view.Id:
+            port = i
+            port_owner_view = i.OwnerViewId
+            break
 
-    if is_port_view: # Если BoundingBox - None, то значит вид активирован 
-        port_owner_view = port.OwnerViewId
-
-        # --- Создание временного вида ---
-        # Быстрее чем брать случайный вид(особенно если он будет тяжелый)
-        collector = FilteredElementCollector(doc)
-        title_blocks = collector.OfCategory(BuiltInCategory.OST_TitleBlocks)\
-                                .WhereElementIsElementType()\
-                                .ToElements()
-
-        title_block = title_blocks[0]
-
-        # Создаём транзакцию
-        with Transaction(doc, "Создать пустой лист") as t:
-            t.Start()
-            # Создаём новый лист — он будет пустым по умолчанию
-            new_sheet = ViewSheet.Create(doc, title_block.Id)
-            t.Commit()
-
-        # temp_view = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()[0]
-        uidoc.ActiveView = new_sheet
+    if port and port.get_BoundingBox(view) is None: # Если BoundingBox - None, то значит вид активирован 
+        # Переключаемся на временный вид чтобы "разблокировать" текущий
+        temp_view = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()[0]
+        uidoc.ActiveView = temp_view
         v1 = uidoc.ActiveView.Id
 
         # Возвращаемся к нужному виду
@@ -157,10 +120,7 @@ def get_active_ui_view(uidoc, mark=None):
         # Получаем все открытые UIViews
         uiviews = uidoc.GetOpenUIViews()
         to_close = True
-        with Transaction(doc, "Удалить пустой лист") as t:
-            t.Start()
-            doc.Delete(new_sheet.Id)
-            t.Commit()
+        
         # Закрыть временный вид
         for uv in uiviews:
             if uv.ViewId.Equals(v1):
@@ -394,15 +354,11 @@ def get_leader_elbow(mark):
 # ==================================================
 # MAIN
 # ==================================================
-
-to_close = False
 try:
-    mark = CustomSelections.get_picked()
-    if not mark or isinstance(mark, list) or not isinstance(mark, IndependentTag):
-        with forms.WarningBar(title='Выберите марку:'):
-            mark = CustomSelections.pick_element_by_class(IndependentTag)
+    with forms.WarningBar(title='Выберите марку:'):
+        mark = CustomSelections.pick_element_by_class(IndependentTag)
+        uiview, to_close, port_owner_view = get_active_ui_view(uidoc, mark)
 
-    uiview, to_close, port_owner_view = get_active_ui_view(uidoc, mark)
     if not mark:
         sys.exit()
 
@@ -426,17 +382,9 @@ try:
                     create_new_mark(mark, tagget, pos, elbow_loc)
                 else:
                     add_reference_to_existing_mark(mark, tagget, pos, elbow_loc)
-# except InvalidOperationException:
-#     pass
 except:
     print(traceback.format_exc())
 finally:
-
-    pyrevit._HostApplication.uiapp = original_uiapp_property
-    try:
-        if to_close:
-            uiview.Close()
-            uidoc.ActiveView = port_owner_view
-    except InvalidOperationException:
-        pass
-    
+    if to_close:
+        uiview.Close()
+        uidoc.ActiveView = port_owner_view

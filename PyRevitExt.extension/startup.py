@@ -10,53 +10,88 @@ from pyrevit import script
 #==================================================
 #Register button Family_Updater at "change" Revit panel
 #==================================================
-
 missed_users = ['gavrilovskaya', 'neustroeva']
-# def move_button_to_modify(sender, args):
-#     try:
-#         ribbon = aw.ComponentManager.Ribbon
-#         pyrevit_tab = next((t for t in ribbon.Tabs if t.Title == "PS_ALL"), None)
 
-#         # Пока не загрузится PyRevit будет пропускать выполнение
-#         if not pyrevit_tab:
-#             return  
+def bdt_family_upload(sender, args):
+    try:
+        ribbon = aw.ComponentManager.Ribbon
+        pyrevit_tab = next((t for t in ribbon.Tabs if t.Title == "PyRevitExt"), None)
+
+        # Пока не загрузится PyRevit будет пропускать выполнение
+        if not pyrevit_tab:
+            return  
         
-#         source_button = next(
-#             (item for panel in pyrevit_tab.Panels 
-#             for item in panel.Source.Items 
-#             if item.Text == "Обновлятор"),
-#             None
-#         )
-        
-#         if not source_button:
-#             print("Кнопка 'PS_ALL/Обновлятор' не найдена!")
-#             __revit__.Idling -= move_button_to_modify 
-#             return
+        source_button = next(
+            (item for panel in pyrevit_tab.Panels 
+            for item in panel.Source.Items 
+            if item.Text == "Обновлятор"),
+            None
+        )
     
-#         modify_tab = next((t for t in ribbon.Tabs if t.Title == "Изменить" and t.IsVisible), None)
-#         existing_panels = any(p.Source.Title in ["Семейства", "Оформление"] for p in modify_tab.Panels)
+        modify_tab = next((t for t in ribbon.Tabs if t.Title == "Изменить" and t.IsVisible), None)
+        existing_panels = any(p.Source.Title in ["Семейства", "Оформление"] for p in modify_tab.Panels)
 
-#         if modify_tab and not existing_panels:
-#             # Кнопка загрузки семейств
-#             new_button = aw.RibbonPanel()
-#             modify_tab.Panels.Add(new_button)
-#             new_button.Source = aw.RibbonPanelSource()
-#             new_button.Source.Title = "Семейства"
-#             cloned_button = source_button.Clone()
-#             new_button.Source.Items.Add(cloned_button)
+        if modify_tab:
+            # Кнопка загрузки семейств
+            new_button = aw.RibbonPanel()
+            modify_tab.Panels.Add(new_button)
+            new_button.Source = aw.RibbonPanelSource()
+            new_button.Source.Title = "Семейства"
+            cloned_button = source_button.Clone()
+            new_button.Source.Items.Add(cloned_button)
 
-#             # отвязаться от события
-#             __revit__.Idling -= move_button_to_modify
-#         else:
-#             __revit__.Idling -= move_button_to_modify
-#             pass
+            # отвязаться от события
+            __revit__.Idling -= bdt_family_upload
+        else:
+            __revit__.Idling -= bdt_family_upload
+            pass
         
-#     except Exception as ex:
-#         logger.error("Ошибка клонирования кнопки: {}".format(ex))
-#         __revit__.Idling -= move_button_to_modify
+    except Exception as ex:
+        __revit__.Idling -= bdt_family_upload
 
-# if getpass.getuser() not in missed_users:
-#     __revit__.Idling += move_button_to_modify
+def decoration_panel(sender, args):
+    try:
+        ribbon = aw.ComponentManager.Ribbon
+        pyrevit_tab = next((t for t in ribbon.Tabs if t.Title == "PyRevitExt"), None)
+
+        # Пока не загрузится PyRevit будет пропускать выполнение
+        if not pyrevit_tab:
+            return  
+        
+        # Ищем панель "Оформление" в PyRevit
+        source_panel = next(
+            (panel for panel in pyrevit_tab.Panels 
+             if panel.Source.Title == "Оформление"),
+            None
+        )
+        
+        modify_tab = next((t for t in ribbon.Tabs if t.Title == "Изменить" and t.IsVisible), None)
+
+        if modify_tab and source_panel:
+            # Проверяем, существует ли уже панель "Оформление"
+            existing_panel = next((p for p in modify_tab.Panels if p.Source.Title == "Оформление"), None)
+            
+            if not existing_panel:
+                # Создаем новую панель для оформления
+                new_panel = aw.RibbonPanel()
+                modify_tab.Panels.Add(new_panel)
+                new_panel.Source = aw.RibbonPanelSource()
+                new_panel.Source.Title = "Оформление"
+                
+                # Клонируем все элементы из исходной панели
+                for item in source_panel.Source.Items:
+                    cloned_item = item.Clone()
+                    new_panel.Source.Items.Add(cloned_item)
+
+            # отвязаться от события
+            __revit__.Idling -= decoration_panel
+        
+    except Exception as ex:
+        __revit__.Idling -= decoration_panel
+
+if getpass.getuser() not in missed_users:
+    __revit__.Idling += bdt_family_upload
+    __revit__.Idling += decoration_panel
 
 
 from dckpanels.workset_panel import WorksetsDockablePanel

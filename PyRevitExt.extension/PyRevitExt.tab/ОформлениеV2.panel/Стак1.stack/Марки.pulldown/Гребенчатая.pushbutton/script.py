@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-__title__   = "Мультимарка"
+__title__   = "Гребенчатая"
 __doc__ = """
 Модуль для добавления выносок к маркам
 
 Этот скрипт позволяет добавлять дополнительные выноски к существующим маркам
-или создавать новые марки.
+или создавать новые марки для элементов с аналогичным стилем оформления.
 
 Основные возможности:
+- Копирование стиля существующей марки для новых выносок
 - Позиционирование выносок относительно курсора
 - Поддержка различных версий Revit (включая 2022 и выше)
 - Возможность работать как на открытом виде так и на виде на листе
@@ -14,18 +15,6 @@ __doc__ = """
 Версия: 1.0
 Автор: David Medvedev 
 """
-
-#=== Исправления потери контекста pyrevit
-import pyrevit
-original_uiapp_property = pyrevit._HostApplication.uiapp
-ui_app = __revit__
-@property
-def custom_uiapp(self):
-    """Return UIApplication provided to the running command."""
-    return ui_app
-
-pyrevit._HostApplication.uiapp = custom_uiapp
-
 # ==================================================
 # IMPORTS
 # ==================================================
@@ -37,7 +26,6 @@ import sys
 from clr import StrongBox
 from math import fabs
 import traceback
-
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Collections")
 clr.AddReference("RevitAPI")
@@ -46,10 +34,12 @@ clr.AddReference("RevitAPIUI")
 import System.Windows.Forms
 from System.Collections.Generic import List
 from Autodesk.Revit.DB import *
-from Autodesk.Revit.Exceptions import InvalidOperationException
+from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
+from Autodesk.Revit.Exceptions import OperationCanceledException, ArgumentOutOfRangeException
 from pyrevit import forms
 
 from functions._CustomSelections import CustomSelections
+from functions._sketch_plane import set_sketch_plane_to_viewsection
 from functions.version import rvt_vers
 
 # Добавляем логирование использования инструмента
@@ -65,19 +55,11 @@ ToolLogger(script_path=__file__).log()
 uidoc = __revit__.ActiveUIDocument
 doc = uidoc.Document
 active_view = doc.ActiveView
-is_2022 = rvt_vers()
+IS_2022 = rvt_vers()
 
 # ==================================================
 # FUNCTIONS
 # ==================================================
-
-
-def concat_XYZ(xyz):
-    """Конвертирует XYZ в строку"""
-    x = str(xyz.X)
-    y = str(xyz.Y)
-    z = str(xyz.Z)
-    return x + y + z
 
 
 def get_active_ui_view(uidoc, mark=None):
@@ -114,40 +96,17 @@ def get_active_ui_view(uidoc, mark=None):
     port_owner_view = None
     to_close = False
 
-    viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
-    port = next(iter(filter(lambda x: x.ViewId == view.Id, viewports)), None)
-    # for i in FilteredElementCollector(doc).OfClass(Viewport).ToElements():
-    #     if i.ViewId == view.Id:
-    #         port = i
-    #         port_owner_view = i.OwnerViewId
-    #         break
-    # print(port.Id, port.get_BoundingBox(view) is None)
-    try:
-        is_port_view = port.get_BoundingBox(view) is None
-    except:
-        is_port_view = False
+    for i in FilteredElementCollector(doc).OfClass(Viewport).ToElements():
+        if i.ViewId == view.Id:
+            port = i
+            port_owner_view = i.OwnerViewId
+            break
 
-    if is_port_view: # Если BoundingBox - None, то значит вид активирован 
-        port_owner_view = port.OwnerViewId
+    if port and port.get_BoundingBox(view) is None: # Если BoundingBox - None, то значит вид активирован 
+        # Переключаемся на временный вид чтобы "разблокировать" текущий
 
-        # --- Создание временного вида ---
-        # Быстрее чем брать случайный вид(особенно если он будет тяжелый)
-        collector = FilteredElementCollector(doc)
-        title_blocks = collector.OfCategory(BuiltInCategory.OST_TitleBlocks)\
-                                .WhereElementIsElementType()\
-                                .ToElements()
-
-        title_block = title_blocks[0]
-
-        # Создаём транзакцию
-        with Transaction(doc, "Создать пустой лист") as t:
-            t.Start()
-            # Создаём новый лист — он будет пустым по умолчанию
-            new_sheet = ViewSheet.Create(doc, title_block.Id)
-            t.Commit()
-
-        # temp_view = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()[0]
-        uidoc.ActiveView = new_sheet
+        temp_view = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()[0]
+        uidoc.ActiveView = temp_view
         v1 = uidoc.ActiveView.Id
 
         # Возвращаемся к нужному виду
@@ -157,10 +116,7 @@ def get_active_ui_view(uidoc, mark=None):
         # Получаем все открытые UIViews
         uiviews = uidoc.GetOpenUIViews()
         to_close = True
-        with Transaction(doc, "Удалить пустой лист") as t:
-            t.Start()
-            doc.Delete(new_sheet.Id)
-            t.Commit()
+        
         # Закрыть временный вид
         for uv in uiviews:
             if uv.ViewId.Equals(v1):
@@ -287,13 +243,105 @@ def get_tagged_element(mark):
     для старых — массив ссылок `GetTaggedLocalElements()`.
     """
 
-    if is_2022:
+    if IS_2022:
         return doc.GetElement(mark.TaggedLocalElementId)
     else:
         return mark.GetTaggedLocalElements()[0]
 
 
-def create_new_mark(mark, tagget, pos, elbow_loc):
+def get_leader_points(mark):
+    """
+    Получает ключевые точки выноски марки: локоть, позицию головы и конечную точку.
+
+    Параметры
+    ---------
+    mark : Autodesk.Revit.DB.IndependentTag
+        Марка с выноской.
+
+    Возвращает
+    ----------
+    (middle, head, point) : tuple(Autodesk.Revit.DB.XYZ)
+        Координаты локтя, головы и конца выноски.
+
+    Описание
+    --------
+    Обрабатывает различия API Revit между версиями 2022 и 2023+,
+    """
+
+    if IS_2022:
+        # Для Revit 2022 используем свойства
+        middle = mark.LeaderElbow
+        point = mark.LeaderEnd
+    else:
+        tagged_ref = mark.GetTaggedReferences()[0]
+
+        middle = mark.GetLeaderElbow(tagged_ref)
+        point = mark.GetLeaderEnd(tagged_ref)
+    
+    head = mark.TagHeadPosition
+    return middle, head, point
+
+
+def signed_distance_to(plane, p):
+    """Вычисляет signed distance до плоскости"""
+    v = p - plane.Origin
+    return plane.Normal.DotProduct(v)
+
+
+def project_onto(plane, p):
+    """Проецирует точку на плоскость"""
+    d = signed_distance_to(plane, p)
+    return p - d * plane.Normal
+
+
+def calculate_leader_geometry(mark, pos, plane):
+    """
+    Вычисляет новую геометрию выноски на основе исходной марки и положения курсора.
+
+    Параметры
+    ---------
+    mark : Autodesk.Revit.DB.IndependentTag
+        Базовая марка.
+    pos : Autodesk.Revit.DB.XYZ
+        Позиция курсора в координатах модели.
+    plane : Autodesk.Revit.DB.Plane
+        Плоскость текущего вида.
+
+    Возвращает
+    ----------
+    new_middle : Autodesk.Revit.DB.XYZ
+        Новая точка локтя выноски.
+    head_proj : Autodesk.Revit.DB.XYZ
+        Проецированная точка головы марки.
+
+    Описание
+    --------
+    Проецирует все ключевые точки марки на плоскость вида,
+    вычисляет пересечение направляющих линий для определения нового локтя,
+    обеспечивая направление выноски относительно исходной геометрии.
+    """
+
+    middle, head, point = get_leader_points(mark)
+
+    # Проецирование точки на плоскость вида
+    middle_proj = project_onto(plane, middle)
+    head_proj = project_onto(plane, head)
+    point_proj = project_onto(plane, point)
+    pos_proj = project_onto(plane, pos)
+
+    # Вычисление пересечения линий для нового локтя 
+    vec = (point_proj - middle_proj).Normalize()
+    line1 = Line.CreateUnbound(pos_proj, vec)
+    line2 = Line.CreateUnbound(middle_proj, (head_proj - middle_proj).Normalize())
+    
+    intersection = StrongBox[IntersectionResultArray]()
+    line1.Intersect(line2, intersection)
+    
+    new_middle = list(intersection.Value)[0].XYZPoint
+    return new_middle, head_proj
+
+
+def create_new_mark(mark, tagget, pos, new_middle, head):
     """
     Создаёт новую марку для элемента и задаёт ей корректную выноску.
 
@@ -319,7 +367,7 @@ def create_new_mark(mark, tagget, pos, elbow_loc):
 
     ref = Reference(tagget)
     
-    with Transaction(doc, 'Добавить выноску марки') as t:
+    with Transaction(doc, 'Добавить выноску') as t:
         t.Start()
         
         new_mark = IndependentTag.Create(
@@ -329,27 +377,26 @@ def create_new_mark(mark, tagget, pos, elbow_loc):
             ref, 
             True, 
             mark.TagOrientation, 
-            pos
+            head
         )
         
-        new_mark.TagHeadPosition = mark.TagHeadPosition
+        new_mark.TagHeadPosition = head
         new_mark.LeaderEndCondition = mark.LeaderEndCondition
-
-        if is_2022:
+        
+        if IS_2022:
+            new_mark.LeaderElbow = new_middle
             new_mark.LeaderEnd = pos
-
-            if elbow_loc:
-                new_mark.LeaderElbow = elbow_loc
-
-            if new_mark.TagText != mark.TagText:
-                doc.Delete(new_mark.Id)
         else:
-            new_mark.SetLeaderElbow(ref, elbow_loc)
+            new_mark.SetLeaderElbow(ref, new_middle)
             new_mark.SetLeaderEnd(ref, pos)
+        
+        if new_mark.TagText != mark.TagText:
+            doc.Delete(new_mark.Id)
+            
         t.Commit()
 
 
-def add_reference_to_existing_mark(mark, tagget, pos, elbow_loc):
+def add_reference_to_existing_mark(mark, tagget, pos, new_middle):
     """
     Добавляет новую ссылку в существующую марку и обновляет её выноску.
 
@@ -375,68 +422,57 @@ def add_reference_to_existing_mark(mark, tagget, pos, elbow_loc):
     
     with Transaction(doc, 'Добавить выноску марки') as t:
         t.Start()
-
+        
         mark.AddReferences(refList)
-        mark.SetLeaderElbow(ref, elbow_loc)
+        mark.SetLeaderElbow(ref, new_middle)
         mark.SetLeaderEnd(ref, pos)
             
         t.Commit()
 
 
-def get_leader_elbow(mark):
-    try:
-        return mark.LeaderElbow
-    except:
-        tagged_refs = mark.GetTaggedReferences()
-        return mark.GetLeaderElbow(tagged_refs[0])
-
-
 # ==================================================
 # MAIN
 # ==================================================
-
-to_close = False
+with Transaction(doc, 'Добавить выноску марки') as t:
+    t.Start()
 try:
-    mark = CustomSelections.get_picked()
-    if not mark or isinstance(mark, list) or not isinstance(mark, IndependentTag):
-        with forms.WarningBar(title='Выберите марку:'):
-            mark = CustomSelections.pick_element_by_class(IndependentTag)
 
-    uiview, to_close, port_owner_view = get_active_ui_view(uidoc, mark)
+    with forms.WarningBar(title='Выберите текстовую аннотацию:'):
+        mark = CustomSelections.pick_element_by_class(IndependentTag)
+        uiview, to_close, port_owner_view = get_active_ui_view(uidoc, mark)
+
     if not mark:
         sys.exit()
 
-    # Получение начальных данных
+    # ---- Получение начальных данных ----
     el = get_tagged_element(mark)
     el_category = el.Category
 
-    elbow_loc = get_leader_elbow(mark)
-    head = mark.TagHeadPosition
+    plane = Plane.CreateByNormalAndOrigin(active_view.ViewDirection, active_view.Origin)
     tagget = True
-
 
     with forms.WarningBar(title='Выберите следующий элемент для привязки (Следите за положением курсора!!!):'):
         while tagget:
             tagget = CustomSelections.pick_element_by_category(el_category)
-
+            
             if tagget:
                 pos = get_coordinate(uiview)
+                new_middle, head = calculate_leader_geometry(mark, pos, plane)
                 
                 if tagget.Id == el.Id:
-                    create_new_mark(mark, tagget, pos, elbow_loc)
+                    create_new_mark(mark, tagget, pos, new_middle, head)
                 else:
-                    add_reference_to_existing_mark(mark, tagget, pos, elbow_loc)
-# except InvalidOperationException:
-#     pass
-except:
+                    add_reference_to_existing_mark(mark, tagget, pos, new_middle)
+
+except ArgumentOutOfRangeException:
+    forms.alert('Не корректно установлен локоть. Установите точку локтя вдоль линии полки как показано на картинке!')
+    print(traceback.format_exc())
+except System.ArgumentOutOfRangeException:
+    forms.alert('У марки отсутствуют выноски. Установите правильно начальную выноску и попробуйте еще раз.')
+    print(traceback.format_exc())
+except Exception as ex:
     print(traceback.format_exc())
 finally:
-
-    pyrevit._HostApplication.uiapp = original_uiapp_property
-    try:
-        if to_close:
-            uiview.Close()
-            uidoc.ActiveView = port_owner_view
-    except InvalidOperationException:
-        pass
-    
+    if to_close:
+        uiview.Close()
+        uidoc.ActiveView = port_owner_view

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 __title__   = "Гребенчатая"
-__doc__ = """
-Модуль для добавления выносок к маркам
+__doc__ = """Модуль для добавления выносок к маркам
 
 Этот скрипт позволяет добавлять дополнительные выноски к существующим маркам
 или создавать новые марки для элементов с аналогичным стилем оформления.
@@ -35,7 +34,7 @@ import System.Windows.Forms
 from System.Collections.Generic import List
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
-from Autodesk.Revit.Exceptions import OperationCanceledException, ArgumentOutOfRangeException
+from Autodesk.Revit.Exceptions import InvalidOperationException, ArgumentOutOfRangeException
 from pyrevit import forms
 
 from functions._CustomSelections import CustomSelections
@@ -96,11 +95,8 @@ def get_active_ui_view(uidoc, mark=None):
     port_owner_view = None
     to_close = False
 
-    for i in FilteredElementCollector(doc).OfClass(Viewport).ToElements():
-        if i.ViewId == view.Id:
-            port = i
-            port_owner_view = i.OwnerViewId
-            break
+    viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
+    port = next(iter(filter(lambda x: x.ViewId == view.Id, viewports)), None)
 
     if port and port.get_BoundingBox(view) is None: # Если BoundingBox - None, то значит вид активирован 
         # Переключаемся на временный вид чтобы "разблокировать" текущий
@@ -438,7 +434,10 @@ with Transaction(doc, 'Добавить выноску марки') as t:
 try:
 
     with forms.WarningBar(title='Выберите текстовую аннотацию:'):
-        mark = CustomSelections.pick_element_by_class(IndependentTag)
+        mark = CustomSelections.get_picked(IndependentTag)
+        if not mark:
+            mark = CustomSelections.pick_element_by_class(IndependentTag)
+
         uiview, to_close, port_owner_view = get_active_ui_view(uidoc, mark)
 
     if not mark:
@@ -463,7 +462,8 @@ try:
                     create_new_mark(mark, tagget, pos, new_middle, head)
                 else:
                     add_reference_to_existing_mark(mark, tagget, pos, new_middle)
-
+except InvalidOperationException:
+    pass
 except ArgumentOutOfRangeException:
     forms.alert('Не корректно установлен локоть. Установите точку локтя вдоль линии полки как показано на картинке!')
     print(traceback.format_exc())
