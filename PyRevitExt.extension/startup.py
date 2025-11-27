@@ -103,7 +103,7 @@ from pyrevit import revit, DB, UI
 #==================================================
 #Register panels
 #==================================================
-if forms.is_registered_dockable_panel(WorksetsDockablePanel) and forms.is_registered_dockable_panel(FiltersDockablePanel):
+if not(forms.is_registered_dockable_panel(WorksetsDockablePanel) and forms.is_registered_dockable_panel(FiltersDockablePanel)):
     worksets_panel = forms.register_dockable_panel(WorksetsDockablePanel, default_visible=True)
     filters_panel = forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
 

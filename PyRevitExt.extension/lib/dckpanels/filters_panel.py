@@ -393,7 +393,8 @@ class FiltersDockablePanel(forms.WPFPanel):
         self.current_mode = None
 
     # =================== UI-методы ===================
-
+    # ----- Обновления -----
+    # !!! Все что заппускается из под WPF долджно иметь sender, args
     def update_filters(self, sender, args):
         """
         Обновляет панель фильтров через RevitEvent.
@@ -410,12 +411,16 @@ class FiltersDockablePanel(forms.WPFPanel):
         Получает текущий документ и активный вид Revit,
         после чего инициализирует панель фильтров через `_setup_panel()`.
         """
+
+        self._update_data(sender, args)
+        self._setup_panel()
+
+    def _update_data(self, sender, args):
         try:
             doc = HOST_APP.doc
             if doc != self.doc:
                 self.temp_doc_mode = None
                 self.doc = doc
-
             view = self.doc.ActiveView
             temp_id = view.ViewTemplateId
             if (isinstance(temp_id, ElementId) 
@@ -427,8 +432,6 @@ class FiltersDockablePanel(forms.WPFPanel):
         except:
             print(traceback.format_exc())
 
-        # print(self.doc.ActiveView.Name)
-        self._setup_panel()
 
     # ----- Обработчики чекбоксов -----
 
@@ -440,7 +443,8 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Активирует фильтр на виде, используя ExternalEvent.
         """
-
+        self.question_event.Raise()
+        self._update_data(self, sender, args)
         self._setup_handler(sender, 'enable', True)
 
     def filter_enabled_unchecked(self, sender, args):
@@ -451,7 +455,8 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Деактивирует фильтр на виде через ExternalEvent.
         """
-
+        self.question_event.Raise()
+        self._update_data(self, sender, args)
         self._setup_handler(sender, 'enable', False)
 
     def filter_visibility_checked(self, sender, args):
@@ -462,7 +467,8 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Делает фильтр видимым на виде через ExternalEvent.
         """
-
+        self.question_event.Raise()
+        self._update_data(self, sender, args)
         self._setup_handler(sender, 'visibility', True)
 
     def filter_visibility_unchecked(self, sender, args):
@@ -473,7 +479,8 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Скрывает фильтр на виде через ExternalEvent.
         """
-
+        self.question_event.Raise()
+        self._update_data(self, sender, args)
         self._setup_handler(sender, 'visibility', False)
 
     # ----- Обработчики кнопок -----
@@ -606,11 +613,10 @@ class FiltersDockablePanel(forms.WPFPanel):
                     t.Start()
                     self.active_view.EnableTemporaryViewPropertiesMode(self.active_view.Id)
                     t.Commit()
+            #     return True
 
-                return True
-
-            elif choice == "temp_one":
-                return True
+            # elif choice == "temp_one":
+            #     return True
 
             elif choice == "temp_doc":
                 self.temp_doc_mode = True
@@ -618,6 +624,7 @@ class FiltersDockablePanel(forms.WPFPanel):
             elif choice == "temp_rvt":
                 self.temp_rvt_mode = True
 
+            self._update_data(sender=None, args=None)
             return True
         except Exception as ex:
             print(traceback.format_exc())
@@ -640,26 +647,18 @@ class FiltersDockablePanel(forms.WPFPanel):
         Устанавливает текущий фильтр и режим для соответствующего обработчика
         и инициирует ExternalEvent.
         """
+        
         try:
-            self.question_event.self.Raise()
-            check = self.question_handler._out()
-            if self.temp_rvt_mode or self.temp_doc_mode or check:
-                self.current_filter_item = sender.DataContext
-                self.current_mode = mode
-                
-                # if handler_type == 'enable':
-                #     self.enabled_handler.filter_item = self.current_filter_item
-                #     self.enabled_handler.mode = mode
-                #     self.enabled_event.Raise()
-                # elif handler_type == 'visibility':
-                #     self.visibility_handler.filter_item = self.current_filter_item
-                #     self.visibility_handler.mode = mode
-                #     self.visibility_event.Raise()
-
-                self.view_settings_handler.filter_item = self.current_filter_item
-                self.view_settings_handler.mode = mode
-                self.view_settings_handler.setting_type = handler_type
-                self.view_settings_event.Raise()
+            # self.question_event.Raise()
+            # check = self.question_handler._out()
+            # if self.temp_rvt_mode or self.temp_doc_mode or check:
+            self.current_filter_item = sender.DataContext
+            self.current_mode = mode
+    
+            self.view_settings_handler.filter_item = self.current_filter_item
+            self.view_settings_handler.mode = mode
+            self.view_settings_handler.setting_type = handler_type
+            self.view_settings_event.Raise()
                 
         except Exception as ex:
             print(traceback.format_exc())
