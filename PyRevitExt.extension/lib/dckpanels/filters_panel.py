@@ -218,66 +218,12 @@ class AddFiltersHandler(IExternalEventHandler):
         self.panel = panel
         
     def Execute(self, app):
-        self.panel._add_filters()
+        check = self.panel._is_template_using()
+        if check:
+            self.panel._add_filters()
 
     def GetName(self):
         return "Add Filters Handler"
-
-class AskQuestion(IExternalEventHandler):
-    """
-    Обработчик для всплывающего окна с вопросом 
-    """
-
-    def __init__(self, panel):
-        self.panel = panel
-        self.out = None
-        
-    def Execute(self, app):
-        try:
-            self.out = self.panel._is_template_using()
-        except:
-            print(traceback.format_exc())
-
-    def GetName(self):
-        return "Add Filters Handler"
-    
-    def _out(self):
-        return self.out
-    
-# class FilterEnabledHandler(IExternalEventHandler):
-#     """
-#     Обработчик изменения состояния включения фильтра.
-#     """
-
-#     def __init__(self, panel):
-#         self.panel = panel
-#         self.filter_item = None
-#         self.mode = None
-        
-#     def Execute(self, app):
-#         if self.filter_item:
-#             self.panel._set_filter_enable(self.filter_item, self.mode)
-
-#     def GetName(self):
-#         return "Filter Enabled Handler"
-
-
-# class FilterVisibilityHandler(IExternalEventHandler):
-#     """
-#     Обработчик изменения видимости фильтра.
-#     """
-
-#     def __init__(self, panel):
-#         self.panel = panel
-#         self.filter_item = None
-#         self.mode = None
-        
-#     def Execute(self, app):
-#         if self.filter_item:
-#             self.panel._set_filter_visibility(self.filter_item, self.mode)
-
-#     def GetName(self):
-#         return "Filter Visibility Handler"
 
 
 class FilterViewSettings(IExternalEventHandler):
@@ -293,7 +239,9 @@ class FilterViewSettings(IExternalEventHandler):
         
     def Execute(self, app):
         if self.filter_item:
-            self.panel._set_filter_settings(self.filter_item, self.setting_type ,self.mode)
+            check = self.panel._is_template_using()
+            if check:
+                self.panel._set_filter_settings(self.filter_item, self.setting_type ,self.mode)
 
     def GetName(self):
         return "Filter View Settings Handler"
@@ -366,27 +314,25 @@ class FiltersDockablePanel(forms.WPFPanel):
         super(FiltersDockablePanel, self).__init__()
         self.doc = None
         self.active_view = None
+        self.active_view_template = None
+        self.is_temporary = None
+        self.is_template = None
+
         self.temp_doc_mode = None
+        self.temp_doc_one = None
         self.temp_rvt_mode = None
+        self.activate_temporary_view = None
         
         # Все действия что должны вызываться из основного потока 
-        # self.enabled_handler = FilterEnabledHandler(self)
-        # self.visibility_handler = FilterVisibilityHandler(self)
-
         self.view_settings_handler = FilterViewSettings(self)
         self.add_filters_handler = AddFiltersHandler(self)
         self.refresh_handler = RefreshPanelHandler(self)
         self.delete_handler = DeleteFilterHandler(self)
-        self.question_handler = AskQuestion(self)
-
-        # self.enabled_event = ExternalEvent.Create(self.enabled_handler)
-        # self.visibility_event = ExternalEvent.Create(self.visibility_handler)
 
         self.view_settings_event = ExternalEvent.Create(self.view_settings_handler)
         self.add_filters_event = ExternalEvent.Create(self.add_filters_handler)
         self.refresh_event = ExternalEvent.Create(self.refresh_handler)
         self.delete_event = ExternalEvent.Create(self.delete_handler)
-        self.question_event = ExternalEvent.Create(self.question_handler)
 
         # Для хранения текущего состояния
         self.current_filter_item = None
@@ -395,6 +341,7 @@ class FiltersDockablePanel(forms.WPFPanel):
     # =================== UI-методы ===================
     # ----- Обновления -----
     # !!! Все что заппускается из под WPF долджно иметь sender, args
+    # И не стоит разделять UIRevit выполнение на несколько функций
     def update_filters(self, sender, args):
         """
         Обновляет панель фильтров через RevitEvent.
@@ -411,27 +358,47 @@ class FiltersDockablePanel(forms.WPFPanel):
         Получает текущий документ и активный вид Revit,
         после чего инициализирует панель фильтров через `_setup_panel()`.
         """
-
-        self._update_data(sender, args)
-        self._setup_panel()
-
-    def _update_data(self, sender, args):
         try:
             doc = HOST_APP.doc
             if doc != self.doc:
                 self.temp_doc_mode = None
                 self.doc = doc
+
             view = self.doc.ActiveView
             temp_id = view.ViewTemplateId
-            if (isinstance(temp_id, ElementId) 
-                or (self.temp_rvt_mode or self.temp_doc_mode) 
-                and not view.IsTemporaryViewPropertiesModeEnabled):
-                self.active_view = doc.GetElement(temp_id)
-            else:
-                self.active_view = view
+
+            # Обновление части флагов действий
+            self.is_temporary = view.IsTemporaryViewPropertiesModeEnabled()
+            self.temp_doc_one = None
+            self.activate_temporary_view = None
+            self.is_template = False if temp_id == ElementId.InvalidElementId else True
+
+            # получение вида
+            self.active_view = view # всегда получает активный
+            self.active_view_template = doc.GetElement(temp_id)
+
+            # Подписать активный вид
+            v = self._determine_target_view()
+            v_name = "[Вид]_" + v.Name
+            if self.temp_rvt_mode:
+                v_name = "[Шаблон|Весь сеанс]_" + v.Name
+            if self.temp_doc_mode:
+                v_name = "[Шаблон|Документ]_" + v.Name
+
+            self.ViewNameTextBlock.Text = v_name
+
+            self._setup_panel()
         except:
             print(traceback.format_exc())
 
+    def _determine_target_view(self):
+        # if self.is_temporary:
+        #     return self.active_view
+
+        if self.temp_doc_one or self.temp_doc_mode or self.temp_rvt_mode:
+            return self.active_view_template
+        
+        return self.active_view
 
     # ----- Обработчики чекбоксов -----
 
@@ -443,8 +410,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Активирует фильтр на виде, используя ExternalEvent.
         """
-        self.question_event.Raise()
-        self._update_data(self, sender, args)
+
         self._setup_handler(sender, 'enable', True)
 
     def filter_enabled_unchecked(self, sender, args):
@@ -455,8 +421,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Деактивирует фильтр на виде через ExternalEvent.
         """
-        self.question_event.Raise()
-        self._update_data(self, sender, args)
+
         self._setup_handler(sender, 'enable', False)
 
     def filter_visibility_checked(self, sender, args):
@@ -467,8 +432,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Делает фильтр видимым на виде через ExternalEvent.
         """
-        self.question_event.Raise()
-        self._update_data(self, sender, args)
+
         self._setup_handler(sender, 'visibility', True)
 
     def filter_visibility_unchecked(self, sender, args):
@@ -479,8 +443,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Скрывает фильтр на виде через ExternalEvent.
         """
-        self.question_event.Raise()
-        self._update_data(self, sender, args)
+
         self._setup_handler(sender, 'visibility', False)
 
     # ----- Обработчики кнопок -----
@@ -503,7 +466,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Принудительно обновляет панель фильтров через ExternalEvent.
         """
-
+        self.temp_rvt_mode = None
         self.refresh_event.Raise()
         
     def btn_expand_all_click(self, sender, args):
@@ -569,9 +532,10 @@ class FiltersDockablePanel(forms.WPFPanel):
         """
 
         try:
+            target_view = self._determine_target_view()
             with Transaction(self.doc, "Panel_Удалить фильтр из вида") as t:
                 t.Start()
-                self.active_view.RemoveFilter(filter_item.FilterElement.Id)
+                target_view.RemoveFilter(filter_item.FilterElement.Id)
                 t.Commit()
             
             self._setup_panel()
@@ -581,19 +545,18 @@ class FiltersDockablePanel(forms.WPFPanel):
 
     def _is_template_using(self):
         try:
-
-            if self.temp_rvt_mode or self.temp_doc_mode:
-                return None
+            if (
+            self.is_temporary 
+            or self.temp_doc_mode 
+            or self.temp_rvt_mode
+            or self.activate_temporary_view
+            or not self.is_template
+            ):
+                return True
             
-            if self.active_view.IsTemporaryViewPropertiesModeEnabled:
-                return None
-            
-            if not isinstance(self.active_view.ViewTemplateId, ElementId):
-                return None
-
             commands = [
                 CommandLink('Включить свойства временного вида', return_value="temporary_view"),
-                CommandLink('Начать изменять шиблон, но только один раз', return_value="temp_one"),
+                CommandLink('Начать изменять шаблон, но только один раз', return_value="temp_one"),
                 CommandLink('Начать изменять шаблон в пределах одного файла', return_value="temp_doc"),
                 CommandLink('Начать изменять шаблон в текущем сеансе Revit', return_value="temp_rvt")
             ]
@@ -608,23 +571,26 @@ class FiltersDockablePanel(forms.WPFPanel):
 
             choice = dialog.show()
 
+            if choice is None:
+                self.update_filters(None,None)
+                return False  
+
             if choice == "temporary_view":
-                with Transaction(self.doc, 'Panel_Временный вид') as t:
+                with Transaction(self.doc, "PL_Временный вид") as t:
                     t.Start()
                     self.active_view.EnableTemporaryViewPropertiesMode(self.active_view.Id)
                     t.Commit()
-            #     return True
 
-            # elif choice == "temp_one":
-            #     return True
+
+            elif choice == "temp_one":
+                self.temp_doc_one = True
 
             elif choice == "temp_doc":
                 self.temp_doc_mode = True
 
             elif choice == "temp_rvt":
                 self.temp_rvt_mode = True
-
-            self._update_data(sender=None, args=None)
+                
             return True
         except Exception as ex:
             print(traceback.format_exc())
@@ -649,9 +615,6 @@ class FiltersDockablePanel(forms.WPFPanel):
         """
         
         try:
-            # self.question_event.Raise()
-            # check = self.question_handler._out()
-            # if self.temp_rvt_mode or self.temp_doc_mode or check:
             self.current_filter_item = sender.DataContext
             self.current_mode = mode
     
@@ -673,23 +636,26 @@ class FiltersDockablePanel(forms.WPFPanel):
         через транзакцию Revit и обновляет панель.
         """
         try:
-            all_filters = FilteredElementCollector(self.doc).OfClass(FilterElement).ToElements()
+            target_view = self._determine_target_view()
 
+            all_filters = FilteredElementCollector(self.doc).OfClass(FilterElement).ToElements()
+            view_filters = target_view.GetFilters()
             filters_by_category = defaultdict(list)
 
             for f in all_filters:
-                wrapper = FilterWrapper(f)
+                if f not in view_filters:
+                    wrapper = FilterWrapper(f)
 
-                cat_ids = f.GetCategories()  # List(ElementId)
-                cat_name = self._get_filter_category(cat_ids, self.doc)
-                filters_by_category[cat_name].append(wrapper)
+                    cat_ids = f.GetCategories()  # List(ElementId)
+                    cat_name = self._get_filter_category(cat_ids, self.doc)
+                    filters_by_category[cat_name].append(wrapper)
 
 
             selected_filters = forms.SelectFromList.show(
                 filters_by_category,
                 title='Выбор фильтров для загрузки',
                 multiselect=True,
-                group_selector_title='Категории фильтр:',
+                group_selector_title='Категории фильтров:',
                 button_name='Подтвердить выбор!',
                 sort_groups = 'sorted'
             )
@@ -698,7 +664,7 @@ class FiltersDockablePanel(forms.WPFPanel):
                 with Transaction(self.doc, "Panel_Добавить фильтры") as t:
                     t.Start()
                     for selected_filter in selected_filters:
-                        self.active_view.AddFilter(selected_filter.id)
+                        target_view.AddFilter(selected_filter.id)
                     t.Commit()
                 
                 self._setup_panel()
@@ -724,75 +690,25 @@ class FiltersDockablePanel(forms.WPFPanel):
         Переводит на транзакции Revit для применения видимости.
         """
         try:
+            target_view = self._determine_target_view()
+
             if t == "visibility":
                 with Transaction(self.doc, "Panel_Настройка видимости фильтра") as t:
                     t.Start()
-                    self.active_view.SetFilterVisibility(filter_item.FilterElement.Id, 
+                    target_view.SetFilterVisibility(filter_item.FilterElement.Id, 
                                                         mode)
                     t.Commit()
 
             if t == "enable":
                 with Transaction(self.doc, "Panel_Настройка активации фильтра") as t:
                     t.Start()
-                    self.active_view.SetIsFilterEnabled(filter_item.FilterElement.Id, 
+                    target_view.SetIsFilterEnabled(filter_item.FilterElement.Id, 
                                                         mode)
                     t.Commit()  
+
+            self.update_filters(None,None)
         except Exception as ex:
             print(traceback.format_exc())
-
-    # def _set_filter_visibility(self,filter_item, mode):
-    #     """
-    #     Изменяет видимость фильтра на активном виде.
-
-    #     Параметры
-    #     ---------
-    #     filter_item : FilterItem
-    #         Элемент фильтра.
-    #     mode : bool
-    #         True - видимый, False - скрыт.
-
-    #     Описание
-    #     --------
-    #     Выполняется транзакция Revit для применения видимости.
-    #     """
-
-    #     try:
-    #         with Transaction(self.doc, "Настройка видимости фильтра") as t:
-    #             t.Start()
-    #             self.active_view.SetFilterVisibility(filter_item.FilterElement.Id, 
-    #                                                 mode)
-    #             t.Commit()
-            
-    #     except Exception as ex:
-    #         print(traceback.format_exc())
-
-    # def _set_filter_enable(self,filter_item, mode):
-    #     """
-    #     Включает или отключает фильтр на виде.
-
-    #     Параметры
-    #     ---------
-    #     filter_item : FilterItem
-    #         Элемент фильтра.
-    #     mode : bool
-    #         True - включен, False - выключен.
-
-    #     Описание
-    #     --------
-    #     Выполняется транзакция Revit для изменения состояния фильтра.
-    #     """
-
-    #     try:
-    #         with Transaction(self.doc, "Настройка активации фильтра") as t:
-    #             t.Start()
-    #             self.active_view.SetIsFilterEnabled(filter_item.FilterElement.Id, 
-    #                                                 mode)
-    #             t.Commit()
-            
-            
-    #     except Exception as ex:
-    #         print(traceback.format_exc())
-    # def _is_template_using(self):
 
     def _setup_panel(self):
         """
@@ -806,13 +722,12 @@ class FiltersDockablePanel(forms.WPFPanel):
         """
 
         try:
-            view_filters = self.active_view.GetFilters()
+            target_view = self._determine_target_view()
+            view_filters = target_view.GetFilters()
 
             if view_filters:
                 filters_tree = ObservableCollection[object]()
-                # filters_tree.Add(FilterCategoryItem("Несколько категорий"))
-                
-                
+     
                 # Группируем фильтры по их ElementFilter (категориям)
                 categories_dict = {}
                 
@@ -834,7 +749,7 @@ class FiltersDockablePanel(forms.WPFPanel):
                         filter_item = FilterItem(
                             name=filter_element.Name,
                             filter_element=filter_element,
-                            view=self.active_view
+                            view=target_view
                         )
                         
                         categories_dict[category_name].Children.Add(filter_item)
@@ -854,9 +769,7 @@ class FiltersDockablePanel(forms.WPFPanel):
                     self.FiltersTreeView.ItemsSource = ObservableCollection[object]()
             else:
                 self.FiltersTreeView.ItemsSource = ObservableCollection[object]()
-                
-        except InvalidOperationException:
-            self.FiltersTreeView.ItemsSource = ObservableCollection[object]()
+            
         except Exception:
             self.FiltersTreeView.ItemsSource = ObservableCollection[object]()
             # print(traceback.format_exc())

@@ -34,7 +34,7 @@
                                 <ToggleButton x:Name="ExpanderButton"
                                               IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                               ClickMode="Press"
-                                              Width="16" Height="16"
+                                              Width="14" Height="14"
                                               Background="Transparent"
                                               BorderBrush="Transparent"
                                               Padding="0">
@@ -64,6 +64,8 @@
                                               VerticalScrollBarVisibility="Disabled"
                                               CanContentScroll="False"
                                               Focusable="False"
+                                              ClipToBounds="False"
+                                              
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
                                     <ContentPresenter x:Name="PART_Header" ContentSource="Header"/>
@@ -75,7 +77,7 @@
                                             Grid.Row="1"
                                             Grid.Column="1"
                                             VerticalAlignment="Top"
-                                            Margin="0,2,0,0"
+                                            Margin="-30,2,0,0"
                                             Visibility="{Binding HasItems, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         </Grid>
 
@@ -115,12 +117,21 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="Фильтры вида" 
-                               FontWeight="SemiBold" FontSize="11"
-                               Margin="0,0,5,0"
-                               Foreground="#666666"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Left"/>
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Left">
+                        <TextBlock Text="Фильтры вида" 
+                                    FontWeight="SemiBold" FontSize="11"
+                                    Margin="0,0,5,0"
+                                    Foreground="#666666"
+                                    VerticalAlignment="Center"/>
+                        <!-- Имя активного вида -->
+                        <TextBlock x:Name="ViewNameTextBlock"
+                                   Text="Загрузка..."
+                                   FontSize="10"
+                                   Foreground="#888888"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Left"
+                                   Margin="0,0,0,0"/>
+                    </StackPanel>
 
                     <StackPanel Grid.Column="1" 
                                 Orientation="Horizontal" 
@@ -204,7 +215,6 @@
                                             Click="btn_delete_filter_click"
                                             Background="Transparent"
                                             BorderThickness="0"
-                                            
                                             Width="16" Height="16"
                                             VerticalAlignment="Center"
                                             ToolTip="Удалить фильтр из вида">
