@@ -8,28 +8,28 @@ from operator import attrgetter
 import Autodesk.Windows as aw
 # ws_panel_id = WorksetsDockablePanel.panel_id
 # forms.open_dockable_panel(WorksetsDockablePanel.panel_id)
+forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
 # forms.open_dockable_panel(FiltersDockablePanel.panel_id)
-# forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
 
-ribbon = aw.ComponentManager.Ribbon
-pyrevit_tab = next((t for t in ribbon.Tabs if t.Title == "PyRevitExt"), None)
-cc = 0
-for panel in pyrevit_tab.Panels:
-    print(panel.Source.Title)
-    # for i in dir(panel):
-    #     print(i)
-    for item in panel.Source.Items:
-        print("         {}".format(item))
-        print("         └── {}".format(item.Text))
+# ribbon = aw.ComponentManager.Ribbon
+# pyrevit_tab = next((t for t in ribbon.Tabs if t.Title == "PyRevitExt"), None)
+# cc = 0
+# for panel in pyrevit_tab.Panels:
+#     print(panel.Source.Title)
+#     # for i in dir(panel):
+#     #     print(i)
+#     for item in panel.Source.Items:
+#         print("         {}".format(item))
+#         print("         └── {}".format(item.Text))
 
-        if cc == 1:
-            for i in dir(item):
-                print(i)
+#         if cc == 1:
+#             for i in dir(item):
+#                 print(i)
 
-            break
-    if cc == 1:
-        break
-    cc += 1
+#             break
+#     if cc == 1:
+#         break
+#     cc += 1
 # from pyrevit import revit
 # uiapp = __revit__
 # panels = uiapp.GetRibbonPanels("PyRevitExt")
