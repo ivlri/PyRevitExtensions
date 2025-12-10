@@ -24,6 +24,7 @@ from Autodesk.Revit.Exceptions import InvalidOperationException
 from pyrevit import forms, revit, HOST_APP
 from operator import attrgetter
 from rpw.ui.forms import CommandLink, TaskDialog
+<<<<<<< HEAD
 
 # #==================================================
 # #Update pyrevot.forms.SelectFromList if pyrevit vers < 4.13? 
@@ -104,6 +105,8 @@ def _get_options(self):
 
 forms.SelectFromList._get_options = _get_options
 
+=======
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
 
 class FilterCategoryItem(INotifyPropertyChanged):
     """
@@ -400,7 +403,10 @@ class FiltersDockablePanel(forms.WPFPanel):
         self.is_template = None
 
         self.temp_doc_mode = None
+<<<<<<< HEAD
         self.temp_docs = {}
+=======
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
         self.temp_doc_one = None
         self.temp_rvt_mode = None
         self.activate_temporary_view = None
@@ -442,6 +448,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         """
         try:
             doc = HOST_APP.doc
+<<<<<<< HEAD
             doc_t = doc.Title
 
             if self.doc_title != doc_t :
@@ -464,11 +471,40 @@ class FiltersDockablePanel(forms.WPFPanel):
             # # получение вида
             # self.active_view = view # всегда получает активный
             # self.active_view_template = doc.GetElement(temp_id)
+=======
+            if doc != self.doc:
+                self.temp_doc_mode = None
+                self.doc = doc
+
+            view = self.doc.ActiveView
+            temp_id = view.ViewTemplateId
+
+            # Обновление части флагов действий
+            self.is_temporary = view.IsTemporaryViewPropertiesModeEnabled()
+            self.temp_doc_one = None
+            self.activate_temporary_view = None
+            self.is_template = False if temp_id == ElementId.InvalidElementId else True
+
+            # получение вида
+            self.active_view = view # всегда получает активный
+            self.active_view_template = doc.GetElement(temp_id)
+
+            # Подписать активный вид
+            v = self._determine_target_view()
+            v_name = "[Вид]_" + v.Name
+            if self.temp_rvt_mode:
+                v_name = "[Шаблон|Весь сеанс]_" + v.Name
+            if self.temp_doc_mode:
+                v_name = "[Шаблон|Документ]_" + v.Name
+
+            self.ViewNameTextBlock.Text = v_name
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
 
             self._setup_panel()
         except:
             print(traceback.format_exc())
 
+<<<<<<< HEAD
     def _determine_target_view(self, mode=None):
 
         view = self.doc.ActiveView
@@ -487,6 +523,16 @@ class FiltersDockablePanel(forms.WPFPanel):
         #     return self.active_view
         
         # return self.active_view_template
+=======
+    def _determine_target_view(self):
+        # if self.is_temporary:
+        #     return self.active_view
+
+        if self.temp_doc_one or self.temp_doc_mode or self.temp_rvt_mode:
+            return self.active_view_template
+        
+        return self.active_view
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
 
     # ----- Обработчики чекбоксов -----
 
@@ -554,7 +600,11 @@ class FiltersDockablePanel(forms.WPFPanel):
         --------
         Принудительно обновляет панель фильтров через ExternalEvent.
         """
+<<<<<<< HEAD
         # self.temp_rvt_mode = None
+=======
+        self.temp_rvt_mode = None
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
         self.refresh_event.Raise()
         
     def btn_expand_all_click(self, sender, args):
@@ -644,8 +694,13 @@ class FiltersDockablePanel(forms.WPFPanel):
             
             commands = [
                 CommandLink('Включить свойства временного вида', return_value="temporary_view"),
+<<<<<<< HEAD
                 # CommandLink('Начать изменять шаблон, но только один раз', return_value="temp_one"),
                 # CommandLink('Начать изменять шаблон в пределах одного файла', return_value="temp_doc"),
+=======
+                CommandLink('Начать изменять шаблон, но только один раз', return_value="temp_one"),
+                CommandLink('Начать изменять шаблон в пределах одного файла', return_value="temp_doc"),
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
                 CommandLink('Начать изменять шаблон в текущем сеансе Revit', return_value="temp_rvt")
             ]
 
@@ -660,12 +715,17 @@ class FiltersDockablePanel(forms.WPFPanel):
             choice = dialog.show()
 
             if choice is None:
+<<<<<<< HEAD
                 self._setup_panel()
+=======
+                self.update_filters(None,None)
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
                 return False  
 
             if choice == "temporary_view":
                 with Transaction(self.doc, "PL_Временный вид") as t:
                     t.Start()
+<<<<<<< HEAD
                     active_view = self.doc.ActiveView
                     active_view.EnableTemporaryViewPropertiesMode(active_view.Id)
                     t.Commit()
@@ -682,6 +742,21 @@ class FiltersDockablePanel(forms.WPFPanel):
                 self.temp_rvt_mode = True
             
             self._setup_panel()
+=======
+                    self.active_view.EnableTemporaryViewPropertiesMode(self.active_view.Id)
+                    t.Commit()
+
+
+            elif choice == "temp_one":
+                self.temp_doc_one = True
+
+            elif choice == "temp_doc":
+                self.temp_doc_mode = True
+
+            elif choice == "temp_rvt":
+                self.temp_rvt_mode = True
+                
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
             return True
         except Exception as ex:
             print(traceback.format_exc())
@@ -756,8 +831,11 @@ class FiltersDockablePanel(forms.WPFPanel):
                     t.Start()
                     for selected_filter in selected_filters:
                         target_view.AddFilter(selected_filter.id)
+<<<<<<< HEAD
                         target_view.SetFilterVisibility(selected_filter.id, 
                                                         False)
+=======
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
                     t.Commit()
                 
                 self._setup_panel()
@@ -799,7 +877,11 @@ class FiltersDockablePanel(forms.WPFPanel):
                                                         mode)
                     t.Commit()  
 
+<<<<<<< HEAD
             self._setup_panel()
+=======
+            self.update_filters(None,None)
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
         except Exception as ex:
             print(traceback.format_exc())
 
@@ -815,6 +897,7 @@ class FiltersDockablePanel(forms.WPFPanel):
         """
 
         try:
+<<<<<<< HEAD
             target_view = self._determine_target_view(mode='setup')
 
             # Подписать активный вид
@@ -831,6 +914,9 @@ class FiltersDockablePanel(forms.WPFPanel):
             v_name = pref + target_view_name
             self.ViewNameTextBlock.Text = v_name
 
+=======
+            target_view = self._determine_target_view()
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
             view_filters = target_view.GetFilters()
 
             if view_filters:

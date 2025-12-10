@@ -8,6 +8,7 @@ from operator import attrgetter
 import Autodesk.Windows as aw
 # ws_panel_id = WorksetsDockablePanel.panel_id
 # forms.open_dockable_panel(WorksetsDockablePanel.panel_id)
+<<<<<<< HEAD:PyRevitExt.extension/PyRevitExt.tab/Семейства.panel/WorksetsDockablePanel.pushbutton/script.py
 forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
 # forms.open_dockable_panel(FiltersDockablePanel.panel_id)
 
@@ -37,6 +38,11 @@ forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
 #     print("PANEL: {}".format(p.Name))
 #     for item in p.GetItems():
 #         print("   └── {}".format(item.ItemText))
+=======
+# forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
+forms.open_dockable_panel(FiltersDockablePanel.panel_id)
+
+>>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da:PyRevitExt.extension/PyRevitExt.tab/Семейства Revit.panel/WorksetsDockablePanel.pushbutton/script.py
 
 #-------------------------------------------------------------------------------------------
 # from pyrevit import forms, revit
