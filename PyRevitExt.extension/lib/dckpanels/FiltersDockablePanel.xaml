@@ -7,69 +7,192 @@
 
     <Page.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <!-- Кастомный стиль TreeViewItem: растягивается и ограничивает ширину содержимого -->
+        <Style x:Key="StretchingTreeViewItemStyle" TargetType="TreeViewItem">
+            <Setter Property="Padding" Value="1,2"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <Grid x:Name="RootGrid" HorizontalAlignment="Stretch" Background="{TemplateBinding Background}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="19"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Кнопка раскрытия -->
+                            <Grid x:Name="Expander" Grid.Column="0" Margin="0,0,5,0" VerticalAlignment="Center">
+                                <ToggleButton x:Name="ExpanderButton"
+                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                              ClickMode="Press"
+                                              Width="14" Height="14"
+                                              Background="Transparent"
+                                              BorderBrush="Transparent"
+                                              Padding="0">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent">
+                                                <Path x:Name="ExpandPath"
+                                                      Data="M0,0 L0,8 L8,4 Z"
+                                                      Fill="#666666"
+                                                      Stretch="Uniform"
+                                                      Margin="2"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                            </Grid>
+
+                            <!-- Содержимое элемента -->
+                            <Border x:Name="Bd"
+                                    Grid.Column="1"
+                                    Padding="{TemplateBinding Padding}"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                <!-- ОБЕРТЫВАЕМ ContentPresenter в ScrollViewer для ограничения ширины -->
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              CanContentScroll="False"
+                                              Focusable="False"
+                                              ClipToBounds="False"
+                                              
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                    <ContentPresenter x:Name="PART_Header" ContentSource="Header"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- Дочерние элементы — под родителем -->
+                            <ItemsPresenter x:Name="ItemsHost"
+                                            Grid.Row="1"
+                                            Grid.Column="1"
+                                            VerticalAlignment="Top"
+                                            Margin="-30,2,0,0"
+                                            Visibility="{Binding HasItems, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="false">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="IsExpanded" Value="false">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="#E6F2FF"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#A0C4FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
-    <Grid Margin="5">
+    <Grid Margin="2">
         <!-- Список фильтров с группировкой -->
         <Border BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="4" Padding="12" 
-                Background="White"
-                Grid.Row="0">
+                Background="White">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Заголовок и управление -->
-                <Grid Grid.Row="0" Margin="0,0,0,10">
+                <!-- Управление панелью -->
+                <Grid Grid.Row="0" Margin="0,-3,0,5">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Заголовок слева -->
-                    <TextBlock Text="Фильтры вида" 
-                               FontWeight="SemiBold" FontSize="11"
-                               Foreground="#666666"
-                               Grid.Column="0" VerticalAlignment="Center"
-                               HorizontalAlignment="Left"/>
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Left">
+                        <TextBlock Text="Фильтры вида" 
+                                    FontWeight="SemiBold" FontSize="11"
+                                    Margin="0,0,5,0"
+                                    Foreground="#666666"
+                                    VerticalAlignment="Center"/>
+                        <!-- Имя активного вида -->
+                        <TextBlock x:Name="ViewNameTextBlock"
+                                   Text="Загрузка..."
+                                   FontSize="10"
+                                   Foreground="#888888"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Left"
+                                   Margin="0,0,0,0"/>
+                    </StackPanel>
 
-                    <!-- Контейнер для кнопок справа -->
                     <StackPanel Grid.Column="1" 
                                 Orientation="Horizontal" 
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Center">
-
-                        <Button x:Name="BtnExpandAll" Content="Развернуть"
-                                Click="btn_expand_all_click" Margin="0,0,5,0"
-                                Background="Transparent" BorderBrush="#CCCCCC" BorderThickness="1"
-                                Padding="8,4" FontSize="10"/>
-
-                        <Button x:Name="BtnCollapseAll" Content="Свернуть"
-                                Click="btn_collapse_all_click"
-                                Background="Transparent" BorderBrush="#CCCCCC" BorderThickness="1"
-                                Padding="8,4" FontSize="10"/>
+                        <Button x:Name="BtnAddFilters" Content="🞢"
+                                Click="btn_add_filters" 
+                                Margin="0,0,5,0"
+                                Background="#5F9EA0" Foreground="White" BorderThickness="1"
+                                Padding="3,1" FontSize="14" />
+                        <Button x:Name="BtnRefresh" Content="♻️"
+                                Click="btn_refresh_panel" 
+                                Background="#5F9EA0" BorderThickness="1"
+                                Padding="1,1" FontSize="14" />
+                        <Separator/>
                     </StackPanel>
                 </Grid>
 
+                <!-- Заголовок и управление -->
+                <Grid Grid.Row="1" Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Управление" 
+                               FontWeight="SemiBold" FontSize="11"
+                               Foreground="#666666"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"/>
+
+                    <StackPanel Grid.Column="1" 
+                                Orientation="Horizontal" 
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Button x:Name="BtnExpandAll" Content="↓"
+                                Click="btn_expand_all_click" Margin="0,0,5,0"
+                                Background="Transparent" BorderBrush="#CCCCCC" BorderThickness="1"
+                                Padding="6,0.5" FontSize="14"/>
+                        <Button x:Name="BtnCollapseAll" Content="↑"
+                                Click="btn_collapse_all_click"
+                                Background="Transparent" BorderBrush="#CCCCCC" BorderThickness="1"
+                                Padding="6.5,0.5" FontSize="14" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- TreeView с кастомным поведением -->
                 <TreeView x:Name="FiltersTreeView" 
-                            Margin="0,0,0,10" Background="White" Grid.Row="2">
+                        Grid.Row="2"
+                        Background="White"
+                        HorizontalContentAlignment="Stretch"
+                        ClipToBounds="True"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <TreeView.ItemContainerStyle>
-                        <Style TargetType="TreeViewItem">
-                            <Setter Property="Padding" Value="4,2"/>
-                            <Setter Property="Margin" Value="0"/>
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="VerticalContentAlignment" Value="Center"/>
-                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        </Style>
+                        <Style TargetType="TreeViewItem" BasedOn="{StaticResource StretchingTreeViewItemStyle}"/>
                     </TreeView.ItemContainerStyle>
 
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                            <Grid>
+                            <Grid HorizontalAlignment="Stretch">
                                 <!-- Для категорий (групп) уровня 1 -->
                                 <Grid Visibility="{Binding IsCategory, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock Text="{Binding Name}" 
@@ -81,96 +204,62 @@
 
                                 <!-- Для фильтров уровня 2 -->
                                 <Grid Visibility="{Binding IsFilter, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <!-- Кнопка удаления -->
-                                            <ColumnDefinition Width="150"/>
-                                            <!-- Название фильтра -->
-                                            <ColumnDefinition Width="Auto"/>
-                                            <!-- Чекбоксы -->
-                                        </Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="10000*"/>
+                                        <!-- Хитрость: большой вес, но ограничен родителем -->
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
 
-                                        <!-- Кнопка удаления фильтра -->
-                                        <Button Grid.Column="0"
-                                                Click="btn_delete_filter_click"
-                                                Background="Transparent"
-                                                BorderThickness="0"
-                                                Padding="2"
-                                                Margin="-30,0,5,0"
-                                                Width="16" Height="16"
-                                                VerticalAlignment="Center"
-                                                ToolTip="Удалить фильтр из вида">
-                                            <Button.Content>
-                                                <TextBlock Text="🗑️" 
-                                                           FontSize="9"
-                                                           VerticalAlignment="Center"
-                                                           HorizontalAlignment="Center"/>
-                                            </Button.Content>
-                                        </Button>
+                                    <Button Grid.Column="0"
+                                            Click="btn_delete_filter_click"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Width="16" Height="16"
+                                            VerticalAlignment="Center"
+                                            ToolTip="Удалить фильтр из вида">
+                                        <TextBlock Text="🗑️" FontSize="9"/>
+                                    </Button>
 
-                                        <!-- Название фильтра -->
-                                        <TextBlock Grid.Column="1" 
-                                                    Text="{Binding Name}" 
-                                                    VerticalAlignment="Center" 
-                                                    FontSize="11"
-                                                    Foreground="#2D2D30"
-                                                    Margin="0,0,10,0"/>
+                                    <TextBlock Grid.Column="1"
+                                            Text="{Binding Name}"
+                                            FontSize="11"
+                                            Foreground="#2D2D30"
+                                            VerticalAlignment="Center"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTip="{Binding Name}"
+                                            Margin="0,0,8,0"
+                                            HorizontalAlignment="Left"/>
 
-                                        <!-- Контейнер для чекбоксов с выравниванием по правому краю -->
-                                        <StackPanel Grid.Column="2" 
-                                                    Orientation="Horizontal" 
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <CheckBox IsChecked="{Binding IsFilterEnabled, Mode=TwoWay}"
+                                                Margin="0,0,10,0"
+                                                Checked="filter_enabled_checked"
+                                                Unchecked="filter_enabled_unchecked"
+                                                Focusable="False"
+                                                ToolTip="Включить/выключить фильтр">
+                                            <CheckBox.Content>
+                                                <TextBlock Text="Вкл" FontSize="9" Foreground="#666666"/>
+                                            </CheckBox.Content>
+                                        </CheckBox>
 
-                                            <!-- Чекбокс включения/выключения фильтра -->
-                                            <CheckBox IsChecked="{Binding IsFilterEnabled, Mode=TwoWay}"
-                                                        VerticalAlignment="Center"
-                                                        VerticalContentAlignment="Center"
-                                                        Margin="0,0,10,0"
-                                                        Checked="filter_enabled_checked"
-                                                        Unchecked="filter_enabled_unchecked"
-                                                        Focusable="False"
-                                                        ToolTip="Включить/выключить фильтр">
-                                                <CheckBox.Content>
-                                                    <TextBlock Text="Вкл" FontSize="9"
-                                                                Foreground="#666666"
-                                                                VerticalAlignment="Center"/>
-                                                </CheckBox.Content>
-                                            </CheckBox>
-
-                                            <!-- Чекбокс видимости фильтра -->
-                                            <CheckBox IsChecked="{Binding FilterVisibility, Mode=TwoWay}"
-                                                        VerticalAlignment="Center"
-                                                        VerticalContentAlignment="Center"
-                                                        Checked="filter_visibility_checked"
-                                                        Unchecked="filter_visibility_unchecked"
-                                                        Focusable="False"
-                                                        ToolTip="Видимость фильтра">
-                                                <CheckBox.Content>
-                                                    <TextBlock Text="Видимость" FontSize="9"
-                                                                    Foreground="#666666"
-                                                                    VerticalAlignment="Center"/>
-                                                </CheckBox.Content>
-                                            </CheckBox>
-                                        </StackPanel>
-                                    </Grid>
+                                        <CheckBox IsChecked="{Binding FilterVisibility, Mode=TwoWay}"
+                                                Checked="filter_visibility_checked"
+                                                Unchecked="filter_visibility_unchecked"
+                                                Focusable="False"
+                                                ToolTip="Видимость фильтра">
+                                            <CheckBox.Content>
+                                                <TextBlock Text="👁‍🗨" FontSize="9" Foreground="#666666"/>
+                                            </CheckBox.Content>
+                                        </CheckBox>
+                                    </StackPanel>
                                 </Grid>
                             </Grid>
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="3">
-                    <Button x:Name="BtnAddFilters" Content="Добавить фильтр"
-                        Click="btn_add_filters" Margin="0,0,8,0" Padding="15,8"
-                        Background="#5F9EA0" Foreground="White" BorderThickness="0"
-                        FontWeight="SemiBold"/>
-                    <Button x:Name="BtnRefresh" Content="Обновить панель"
-                        Click="btn_refresh_panel" Margin="0,0,0,0" Padding="15,8"
-                        Background="#5F9EA0" Foreground="White" BorderThickness="0"
-                        FontWeight="SemiBold"/>
-                </StackPanel>
             </Grid>
         </Border>
     </Grid>

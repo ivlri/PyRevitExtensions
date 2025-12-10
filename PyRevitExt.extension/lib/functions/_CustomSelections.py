@@ -5,8 +5,6 @@ from Autodesk.Revit.Exceptions import OperationCanceledException
 
 from pyrevit import revit, DB, UI
 
-doc   =  revit.doc
-uidoc = revit.uidoc
 
 class Pick_by_category(ISelectionFilter):
     global doc
@@ -42,10 +40,9 @@ class Pick_by_class(ISelectionFilter):
 
 class CustomSelections():
     """Класс с реализацией различных методов выбора элементов."""
-
-    selection = uidoc.Selection
     doc = revit.doc
     uidoc = revit.uidoc
+    selection = uidoc.Selection
     @classmethod
     def pick_element_by_category(cls, built_in_category, status="Выберете элемент"):
         """Выбор одного элемента по BuiltInCategory."""
@@ -71,11 +68,11 @@ class CustomSelections():
             return
     
     @classmethod
-    def get_picked(cls,uidoc = uidoc):
+    def get_picked(cls):
         """Получение всех выбранных элементов ревит
         P.S. Учти, что при использовании ломается получаение активного вида
         """
-        select = uidoc.Selection.GetElementIds()
+        select = cls.uidoc.Selection.GetElementIds()
         if len(select) == 1:
             return [cls.doc.GetElement(id) for id in select][0]
         else:

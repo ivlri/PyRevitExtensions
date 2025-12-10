@@ -1,0 +1,14 @@
+VsCode:
+1. Open settings to JSON(search >Settings and open to json)
+2. Copy this settings to your file 
+{
+    "python.autoComplete.extraPaths": [
+        "C:\Users\{USERNAME}\OneDrive\Desktop\PyRevitExtensions\RevitApiStubs\RVT 24",
+        "C:\\Users\\{USERNAME}\\AppData\\Roaming\\pyRevit-Master\\pyrevitlib"
+    ],
+    "python.analysis.extraPaths": [
+        "C:\Users\{USERNAME}\OneDrive\Desktop\PyRevitExtensions\RevitApiStubs\RVT 24",
+        "C:\\Users\\{USERNAME}\\AppData\\Roaming\\pyRevit-Master\\pyrevitlib"
+    ]
+}
+3. Change the patchs
