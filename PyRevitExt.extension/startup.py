@@ -100,21 +100,12 @@
 # from pyrevit import HOST_APP, framework
 # from pyrevit import revit, DB, UI
 
-<<<<<<< HEAD
 # #==================================================
 # #Register panels
 # #==================================================
 # if forms.is_registered_dockable_panel(WorksetsDockablePanel) and forms.is_registered_dockable_panel(FiltersDockablePanel):
 #     worksets_panel = forms.register_dockable_panel(WorksetsDockablePanel, default_visible=True)
 #     filters_panel = forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
-=======
-#==================================================
-#Register panels
-#==================================================
-if not(forms.is_registered_dockable_panel(WorksetsDockablePanel) and forms.is_registered_dockable_panel(FiltersDockablePanel)):
-    worksets_panel = forms.register_dockable_panel(WorksetsDockablePanel, default_visible=True)
-    filters_panel = forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
->>>>>>> 97cbef8db0e1c9fcc8218beb214d62e795f425da
 
 #     HOST_APP.uiapp.ViewActivated += \
 #         framework.EventHandler[UI.Events.ViewActivatedEventArgs](worksets_panel.update_worksets)
