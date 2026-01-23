@@ -34,8 +34,6 @@ from collections import defaultdict
 doc, uidoc, app = configs.get_context()
 doc_title = doc.Title
 
-#Rooms
-sorted_items = apartutils.get_sorted_live_rooms(doc)
 
 #UI
 components = [
@@ -46,18 +44,22 @@ components = [
 
 form = FlexForm('Преднастройка', components)
 form.show()
-start_numb = int(form.values['number'])
+if form.values:
+    #Rooms
+    sorted_items = apartutils.get_sorted_live_rooms(doc)
+    
+    start_numb = int(form.values['number'])
 
-#Generator
-apart_numbers = [str(i) for i in range(start_numb, len(sorted_items))]
-with Transaction(doc, 'Rooms_Порядковый номер в доме') as t:
-    t.Start()
-    for sorted_item, apart_number in zip(sorted_items, apart_numbers):
-        key, rooms = sorted_item
-        for room in rooms:
-            room.adsk_numb_in_home.Set(apart_number)
-    t.Commit()
+    #Generator
+    apart_numbers = [str(i) for i in range(start_numb, len(sorted_items))]
+    with Transaction(doc, 'Rooms_Порядковый номер в доме') as t:
+        t.Start()
+        for sorted_item, apart_number in zip(sorted_items, apart_numbers):
+            key, rooms = sorted_item
+            for room in rooms:
+                room.adsk_numb_in_home.Set(apart_number)
+        t.Commit()
 
-forms.alert("Заполнение номера завершено",
-            sub_msg="Начальный номер - {}\nКонечный номер - {}"\
-                .format(apart_numbers[0],apart_numbers[-1]))
+    forms.alert("Заполнение номера завершено",
+                sub_msg="Начальный номер - {}\nКонечный номер - {}"\
+                    .format(apart_numbers[0],apart_numbers[-1]))

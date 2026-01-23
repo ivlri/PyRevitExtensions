@@ -29,34 +29,37 @@ doc_title = doc.Title
 r_to_add = CustomSelections.pick_elements_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
                                                             status="Выберете помещения которые нужно добавить в группу"
                                                             )
+if r_to_add:
+    try:
+        base_group = configs.RoomItem(CustomSelections.pick_element_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
+                                                                    status="Выберете ОДНО помещение нужной вам группы"
+                                                                    ))
+    except AttributeError:
+        sys.exit()
+        
+    if base_group:
+        group_items  = apartutils.get_group_by_room(doc, base_group)
+        selected_rooms = configs.wrap_in_room_item(group_items.get("rooms")) + configs.wrap_in_room_item(r_to_add)
 
-base_group = configs.RoomItem(CustomSelections.pick_element_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
-                                                            status="Выберете ОДНО помещение нужной вам группы"
-                                                            ))
+        apart_type, is_numeric = apartutils.get_apart_type(selected_rooms)
 
+        if apart_type is None:
+            forms.alert("Выбраны разные по типу помещения! Выбирайте за раз помещения одного типа.")
+            sys.exit()
 
-group_items  = apartutils.get_group_by_room(doc, base_group)
-selected_rooms = configs.wrap_in_room_item(group_items.get("rooms")) + configs.wrap_in_room_item(r_to_add)
+        # Основной процесс
+        gp_code, section_value = apartutils.get_section(doc)
 
-apart_type, is_numeric = apartutils.get_apart_type(selected_rooms)
+        rooms, coef_values, ps_groups, ps_purposes = apartutils.sorted_rooms(selected_rooms, apart_type)
 
-if apart_type is None:
-    forms.alert("Выбраны разные по типу помещения! Выбирайте за раз помещения одного типа.")
-    sys.exit()
-
-# Основной процесс
-gp_code, section_value = apartutils.get_section(doc)
-
-rooms, coef_values, ps_groups, ps_purposes = apartutils.sorted_rooms(selected_rooms, apart_type)
-
-alert, sub_msg = apartutils.create_new_group(doc=doc, 
-                                             tr_name = "Rooms_Добавить в группу",
-                                             rooms=rooms, 
-                                             coef_values=coef_values, 
-                                             ps_groups=ps_groups, 
-                                             ps_purposes=ps_purposes, 
-                                             room_index=group_items.get("index"),
-                                             gp_code=group_items.get("gp"), 
-                                             section_value=section_value)
+        alert, sub_msg = apartutils.create_new_group(doc=doc, 
+                                                    tr_name = "Rooms_Добавить в группу",
+                                                    rooms=rooms, 
+                                                    coef_values=coef_values, 
+                                                    ps_groups=ps_groups, 
+                                                    ps_purposes=ps_purposes, 
+                                                    room_index=group_items.get("index"),
+                                                    gp_code=group_items.get("gp"), 
+                                                    section_value=section_value)
 
 

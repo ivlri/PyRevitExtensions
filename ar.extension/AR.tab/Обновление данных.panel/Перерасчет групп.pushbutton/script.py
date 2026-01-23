@@ -45,30 +45,31 @@ components = [
 form = FlexForm('Преднастройка', components)
 form.show()
 
-is_set_area = form.values['is_set_area']
+if form.values:
+    is_set_area = form.values['is_set_area']
 
-with Transaction(doc, 'Rooms_Перерасчет групп') as t:
-    t.Start()
+    with Transaction(doc, 'Rooms_Перерасчет групп') as t:
+        t.Start()
 
-    for index, grouped_rooms in sorted_items:
-        try:
-            first_room = grouped_rooms[0]
-            apart_type = first_room.ps_purpose.AsValueString()
+        for index, grouped_rooms in sorted_items:
+            try:
+                first_room = grouped_rooms[0]
+                apart_type = first_room.ps_purpose.AsValueString()
 
-            rooms, coef_values, ps_groups, ps_purposes = apartutils.sorted_rooms(grouped_rooms, apart_type)
-            alert, sub_msg = apartutils.create_new_group(doc=doc, 
-                                                        rooms=rooms, 
-                                                        coef_values=coef_values, 
-                                                        ps_groups=ps_groups, 
-                                                        ps_purposes=ps_purposes, 
-                                                        room_index=first_room.adsk_index.AsValueString(),
-                                                        gp_code=first_room.adsk_section_str.AsValueString(), 
-                                                        section_value=first_room.ps_section_numb.AsValueString(),
-                                                        set_frozen_area=is_set_area,
-                                                        alert=False
-                                                        )
-        except Exception:
-            print(traceback.format_exc())
-            break
+                rooms, coef_values, ps_groups, ps_purposes = apartutils.sorted_rooms(grouped_rooms, apart_type)
+                alert, sub_msg = apartutils.create_new_group(doc=doc, 
+                                                            rooms=rooms, 
+                                                            coef_values=coef_values, 
+                                                            ps_groups=ps_groups, 
+                                                            ps_purposes=ps_purposes, 
+                                                            room_index=first_room.adsk_index.AsValueString(),
+                                                            gp_code=first_room.adsk_section_str.AsValueString(), 
+                                                            section_value=first_room.ps_section_numb.AsValueString(),
+                                                            set_frozen_area=is_set_area,
+                                                            alert=False
+                                                            )
+            except Exception:
+                print(traceback.format_exc())
+                break
 
-    t.Commit()
+        t.Commit()

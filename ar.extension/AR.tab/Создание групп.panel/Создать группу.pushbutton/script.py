@@ -84,43 +84,46 @@ selected_rooms = CustomSelections.pick_elements_by_category(built_in_category=Bu
                                                             status='Выберете помещения для создания группы'
                                                             )
 
-selected_rooms = configs.wrap_in_room_item(selected_rooms)
-apart_type, is_numeric = apartutils.get_apart_type(selected_rooms)
+if selected_rooms:
+    selected_rooms = configs.wrap_in_room_item(selected_rooms)
+    apart_type, is_numeric = apartutils.get_apart_type(selected_rooms)
 
-if apart_type is None:
-    forms.alert('Выбраны разные по типу помещения! Выбирайте за раз помещения одного типа.')
-    sys.exit()
+    if apart_type is None:
+        forms.alert('Выбраны разные по типу помещения! Выбирайте за раз помещения одного типа.')
+        sys.exit()
 
-room_index = ''
-gp_value = ''
-gp_code, section_value = apartutils.get_section(doc)
+    room_index = ''
+    gp_value = ''
+    gp_code, section_value = apartutils.get_section(doc)
 
-need_room_index, need_gp_value = resolve_gp_inputs(
-    is_numeric, gp_code, section_value
-)
+    need_room_index, need_gp_value = resolve_gp_inputs(
+        is_numeric, gp_code, section_value
+    )
 
-values = ask_gp_values(need_room_index, need_gp_value, temp_alert)
+    values = ask_gp_values(need_room_index, need_gp_value, temp_alert)
+    if not values:
+        sys.exit()
+        
+    room_index = values.get('room_index', '')
+    use_alert = values.get('alert', None)
+    
+    if use_alert != temp_alert:
+        configs.rb_temp(use_alert)
+        temp_alert = use_alert
 
-room_index = values.get('room_index', '')
-use_alert = values.get('alert', None)
+    gp_value = build_gp_value(values, gp_code, section_value)
 
-if use_alert != temp_alert:
-    configs.rb_temp(use_alert)
-    temp_alert = use_alert
-
-gp_value = build_gp_value(values, gp_code, section_value)
-
-sorted_rooms, coef_values, ps_groups, ps_purposes = apartutils.sorted_rooms(selected_rooms, 
-                                                                            apart_type)
-alert, sub_msg = apartutils.create_new_group(doc=doc, 
-                                             tr_name='Rooms_Сбор группы',
-                                             rooms=sorted_rooms, 
-                                             coef_values=coef_values, 
-                                             ps_groups=ps_groups, 
-                                             ps_purposes=ps_purposes, 
-                                             room_index=room_index,
-                                             gp_code=gp_value, 
-                                             section_value=section_value,
-                                             alert=temp_alert)
+    sorted_rooms, coef_values, ps_groups, ps_purposes = apartutils.sorted_rooms(selected_rooms, 
+                                                                                apart_type)
+    alert, sub_msg = apartutils.create_new_group(doc=doc, 
+                                                tr_name='Rooms_Сбор группы',
+                                                rooms=sorted_rooms, 
+                                                coef_values=coef_values, 
+                                                ps_groups=ps_groups, 
+                                                ps_purposes=ps_purposes, 
+                                                room_index=room_index,
+                                                gp_code=gp_value, 
+                                                section_value=section_value,
+                                                alert=temp_alert)
 
 

@@ -64,7 +64,7 @@ with Transaction(doc, "Rooms_Расчет квартирографии") as t:
             ps_area_summer = 0.0              # летние помещения
             live_room_count = 0               # количество жилых комнат
             is_stud = False
-
+            check = 0
             # --- проверка коэффициентов (один раз - перезапись) ---
             if any(room.adsk_coef.AsDouble() == 0 for room in rooms):
                 r, area_coefs, _, _ = apartutils.sorted_rooms(rooms, "Жилье")
@@ -73,7 +73,9 @@ with Transaction(doc, "Rooms_Расчет квартирографии") as t:
 
             # --- расчет ---
             for room in rooms:
-                check_try_area = room.LookupParameter('Площадь').AsDouble()
+                check_try_area = room.element.LookupParameter('Площадь').AsDouble()
+                if check_try_area == 0:
+                    check += 1
 
                 group = room.ps_group.AsValueString()
                 coef = room.adsk_coef.AsDouble()
@@ -95,6 +97,9 @@ with Transaction(doc, "Rooms_Расчет квартирографии") as t:
                 if room.Name in configs.RoomItem.STUD:
                     is_stud = True
 
+            if check > 0:
+                forms.alert("Расчет принудительно остановлен!", sub_msg="Найдено неразмещенных помещений: {}\nИсправьте неразмещенные помещения что бы сделать расчет".format(check))
+                sys.exit()
             # --- тип квартиры ---
             adsk_apart_type = "{}С".format(live_room_count)
 

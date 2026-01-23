@@ -48,27 +48,29 @@ components = [
 
 form = FlexForm('Преднастройка', components)
 form.show()
-mode = form.values['mode']
 
-if mode == 1:
-    rooms = FilteredElementCollector(doc) \
-    .OfCategory(BuiltInCategory.OST_Rooms) \
-    .ToElements()
-elif mode == 2:
-    rooms = CustomSelections.pick_elements_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
-                                                            status="Выберете помещения для перерасчета площади"
-                                                            )
-elif mode == 3:
-    base_group = configs.RoomItem(CustomSelections.pick_element_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
-                                                                status="Выберете ОДНО помещение нужной вам группы"
-                                                                ))
-    
-    rooms = apartutils.get_group_by_room(doc, base_group).get("rooms")
+if form.values:
+    mode = form.values['mode']
 
-rooms = configs.wrap_in_room_item(rooms)
-with Transaction(doc, 'Rooms_Обновление площадей') as t:
-    t.Start()
-    for room in rooms:
-        area = room.rounded_area
-        room.ps_area_frozen.Set(area)
-    t.Commit()
+    if mode == 1:
+        rooms = FilteredElementCollector(doc) \
+        .OfCategory(BuiltInCategory.OST_Rooms) \
+        .ToElements()
+    elif mode == 2:
+        rooms = CustomSelections.pick_elements_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
+                                                                status="Выберете помещения для перерасчета площади"
+                                                                )
+    elif mode == 3:
+        base_group = configs.RoomItem(CustomSelections.pick_element_by_category(built_in_category=BuiltInCategory.OST_Rooms, 
+                                                                    status="Выберете ОДНО помещение нужной вам группы"
+                                                                    ))
+        
+        rooms = apartutils.get_group_by_room(doc, base_group).get("rooms")
+
+    rooms = configs.wrap_in_room_item(rooms)
+    with Transaction(doc, 'Rooms_Обновление площадей') as t:
+        t.Start()
+        for room in rooms:
+            area = room.rounded_area
+            room.ps_area_frozen.Set(area)
+        t.Commit()
