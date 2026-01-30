@@ -77,8 +77,11 @@ def get_context():
     app   = __revit__.Application
     return doc, uidoc, app
 
-def get_groups():
+def get_groups(fp=None):
     file_path = os.path.join(os.path.dirname(__file__), 'rooms_groups.json')
+    if fp:
+        return file_path
+    
     with codecs.open(file_path, 'r', encoding='utf-8') as f:
         rooms_groups = json.load(f)
     return rooms_groups

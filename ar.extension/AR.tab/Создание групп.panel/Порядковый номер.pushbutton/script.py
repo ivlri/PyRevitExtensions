@@ -51,7 +51,7 @@ if form.values:
     start_numb = int(form.values['number'])
 
     #Generator
-    apart_numbers = [str(i) for i in range(start_numb, len(sorted_items))]
+    apart_numbers = [str(i) for i in range(start_numb, len(sorted_items) + start_numb)]
     with Transaction(doc, 'Rooms_Порядковый номер в доме') as t:
         t.Start()
         for sorted_item, apart_number in zip(sorted_items, apart_numbers):
@@ -60,6 +60,7 @@ if form.values:
                 room.adsk_numb_in_home.Set(apart_number)
         t.Commit()
 
+    print(apart_numbers)
     forms.alert("Заполнение номера завершено",
                 sub_msg="Начальный номер - {}\nКонечный номер - {}"\
                     .format(apart_numbers[0],apart_numbers[-1]))
