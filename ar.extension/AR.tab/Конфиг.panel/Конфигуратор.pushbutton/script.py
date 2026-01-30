@@ -38,7 +38,7 @@ XAML = u"""
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Конфигуратор помещений"
         Height="600"
-        Width="1000"
+        Width="800"
         WindowStartupLocation="CenterScreen">
 
   <DockPanel>
@@ -181,7 +181,7 @@ def create_tab(category, rows):
 
     grid.Columns.Add(col(u"Наименование", "Name", 260))
     grid.Columns.Add(col(u"Коэф. площади", "Coeff", 120))
-    grid.Columns.Add(col(u"Назначение", "Purpose", 180))
+    # grid.Columns.Add(col(u"Назначение", "Purpose", 180))
     grid.Columns.Add(col(u"Группа", "Group", 180))
     grid.Columns.Add(col(u"Приоритет", "Priority", 100))
 
@@ -260,18 +260,31 @@ def on_add_row(sender, args):
     if not tab:
         return
 
+    grid = tab.Content
     collection = tabs_data.get(tab.Header)
     if collection is None:
         return
 
-    new_row = RoomRow()
-    collection.Add(new_row)
-    recalculate_priorities(collection)
+    grid.CommitEdit()
+    grid.CommitEdit()
 
+    selected = grid.SelectedItem
+
+    new_row = RoomRow()
     new_row.Purpose = tab.Header
 
-    tab.Content.CommitEdit()
-    tab.Content.Items.Refresh()
+    if selected and selected in collection:
+        idx = collection.IndexOf(selected)
+        collection.Insert(idx + 1, new_row)
+    else:
+        collection.Add(new_row)
+
+    recalculate_priorities(collection)
+
+    grid.Items.Refresh()
+
+    grid.SelectedItem = new_row
+    grid.ScrollIntoView(new_row)
 
 def on_ok(sender, args):
     data = collect_result(tabs_data)

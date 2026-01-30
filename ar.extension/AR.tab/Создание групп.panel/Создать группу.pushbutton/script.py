@@ -74,7 +74,6 @@ def build_gp_value(form, gp_code, section_value):
 
     return form.values.get('gp_code')
 
-
 #==================================================
 #MAIN
 #==================================================
