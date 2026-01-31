@@ -1,0 +1,15 @@
+help_url: https://www.notion.so/psgr/V6-02901739c52f4b06a3d870a4c5c8255a?pvs=4#970779d1eb6b4499bb2356d56f2aa860
+
+title: Экспорт
+
+tooltip: >-
+                Экспорт ТЭП в эксель.
+         
+                
+                ⫸ Нажмите F1 что бы получить подробную справку!
+
+min_revit_version: 2022
+
+engine:
+  clean: false
+  automate: false
