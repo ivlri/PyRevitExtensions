@@ -6,8 +6,8 @@ from pyrevit import forms
 from panels.rpanel import RoomsDockablePanel
 
 # # регистрация панели
-# forms.register_dockable_panel(RoomsDockablePanel)
+forms.register_dockable_panel(RoomsDockablePanel)
 
 # показать / активировать
-forms.open_dockable_panel(RoomsDockablePanel.panel_id)
+# forms.open_dockable_panel(RoomsDockablePanel.panel_id)
 

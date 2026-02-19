@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-from pyrevit import forms
 import os.path as op
-import clr
 import sys
 import traceback
+
+import clr
+from pyrevit import forms
+
 clr.AddReference("System")
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("PresentationCore")
@@ -12,22 +14,19 @@ clr.AddReference("WindowsBase")
 clr.AddReference("RevitAPI")
 clr.AddReference("RevitAPIUI")
 
-from System.Collections.ObjectModel import ObservableCollection
-from System.ComponentModel import INotifyPropertyChanged
-from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
-
+import clr
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
-from pyrevit import forms, revit, HOST_APP
+from pyrevit import HOST_APP, forms, revit
+from System import EventHandler
+from System.Collections.ObjectModel import ObservableCollection
+
 # from operator import attrgetter
-
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
-from System import EventHandler
 
-import clr
 clr.AddReference("System")
-from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System import EventHandler
+from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 
 class WorksetItem(INotifyPropertyChanged):
@@ -42,7 +41,7 @@ class WorksetItem(INotifyPropertyChanged):
         Идентификатор рабочего набора.
     IsSelected : bool
         Флаг состояния выбора пользователем (checkbox).
-    
+
     Описание
     --------
     Класс реализует интерфейс INotifyPropertyChanged, что позволяет
@@ -67,6 +66,7 @@ class WorksetItem(INotifyPropertyChanged):
     def _raise(self, prop):
         if self._propertyChanged:
             self._propertyChanged(self, PropertyChangedEventArgs(prop))
+
     @property
     def Name(self):
         return self._name
@@ -84,6 +84,7 @@ class WorksetItem(INotifyPropertyChanged):
         if self._is_selected != value:
             self._is_selected = value
             self._raise("IsSelected")
+
 
 class WorksetVisibilityHandler(IExternalEventHandler):
     """
@@ -106,9 +107,9 @@ class WorksetVisibilityHandler(IExternalEventHandler):
     def __init__(self, panel, mode):
         self.panel = panel
         self.mode = mode
-        
+
     def Execute(self, app):
-        self.panel._set_wsvisible(mode = self.mode)
+        self.panel._set_wsvisible(mode=self.mode)
 
     def GetName(self):
         return "Workset Visibility Handler"
@@ -156,7 +157,7 @@ class WorksetsDockablePanel(forms.WPFPanel):
         Параметры
         ---------
         sender :
-        args : 
+        args :
         Не используется напрямую. Нужны для реализации в WPF
 
         Описание
@@ -164,7 +165,7 @@ class WorksetsDockablePanel(forms.WPFPanel):
         Вызывает связанный ExternalEvent,
         который выполнит скрытие рабочих наборов в документе.
         """
-        
+
         self.hide_event.Raise()
 
     def select_show_click(self, sender, args):
@@ -210,7 +211,7 @@ class WorksetsDockablePanel(forms.WPFPanel):
         --------
         Повторно загружает список рабочих наборов при смене документа
         """
-                
+
         self._update_selected_items(True, sender)
 
     def CheckBox_Unchecked(self, sender, args):
@@ -250,10 +251,10 @@ class WorksetsDockablePanel(forms.WPFPanel):
 
         try:
             current_items = list(self.WorksetsListBox.ItemsSource)
-            
+
             for item in current_items:
                 item.IsSelected = False
-            
+
             self.WorksetsListBox.ItemsSource = None
             self.WorksetsListBox.ItemsSource = current_items
         except Exception as ex:
@@ -278,20 +279,18 @@ class WorksetsDockablePanel(forms.WPFPanel):
             try:
                 all_worksets = ObservableCollection[object]()
                 self.panel_doc = doc
-                user_workset = FilteredWorksetCollector(self.panel_doc).\
-                    OfKind(WorksetKind.UserWorkset)
-                
+                user_workset = FilteredWorksetCollector(self.panel_doc).OfKind(
+                    WorksetKind.UserWorkset
+                )
+
                 for workset in sorted(list(user_workset), key=lambda x: x.Name):
-                    workset_item = WorksetItem(
-                        name=workset.Name,
-                        workset_id=workset.Id
-                    )
+                    workset_item = WorksetItem(name=workset.Name, workset_id=workset.Id)
                     all_worksets.Add(workset_item)
 
                 self.WorksetsListBox.ItemsSource = all_worksets
             except Exception as ex:
                 print(ex.message)
-    
+
     def _get_selected(self):
         """
         Возвращает список выбранных рабочих наборов.
@@ -303,13 +302,14 @@ class WorksetsDockablePanel(forms.WPFPanel):
         list[WorksetItem] | None
         """
 
-        selected_items = [item for item in self.WorksetsListBox.ItemsSource 
-                          if item.IsSelected]
+        selected_items = [
+            item for item in self.WorksetsListBox.ItemsSource if item.IsSelected
+        ]
         if not selected_items:
             forms.alert("Нет выбранных рабочих наборов!")
             return
         return selected_items
-    
+
     def _set_wsvisible(self, mode="show"):
         """
         Изменяет видимость выбранных рабочих наборов на активном виде.
@@ -337,14 +337,13 @@ class WorksetsDockablePanel(forms.WPFPanel):
                 transaction_type = "PS_Скрытие наборов на виде"
 
             items = self._get_selected()
-            with Transaction(self.panel_doc ,transaction_type) as t:
+            with Transaction(self.panel_doc, transaction_type) as t:
                 t.Start()
                 if items:
                     for item in items:
-                        #item.Name, item.WorksetId
+                        # item.Name, item.WorksetId
                         active_view.SetWorksetVisibility(item.WorksetId, visible_mode)
                 t.Commit()
 
         except Exception as ex:
             print(traceback.format_exc())
-

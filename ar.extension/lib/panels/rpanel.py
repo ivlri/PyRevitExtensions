@@ -27,7 +27,7 @@ from Autodesk.Revit.DB.Architecture import Room
 from Autodesk.Revit.UI import *
 from Autodesk.Revit.UI.Selection import ObjectSnapTypes
 from Autodesk.Revit.Exceptions import OperationCanceledException
-
+from System.Windows.Media import SolidColorBrush, Colors
 # --------------------------------------------------
 JSON_PATH = configs.get_groups(fp=True)
 XAML_PATH = os.path.join(os.path.dirname(__file__), "RoomsPanel.xaml")
@@ -106,6 +106,7 @@ class RoomsDockablePanel(forms.WPFPanel):
     def _create_tab_buttons(self, category, rooms):
         tab = TabItem()
         tab.Header = category
+        tab.Background = SolidColorBrush(Colors.White)
 
         # группировка по RoomRow.Group
         grouped = defaultdict(list)
@@ -114,14 +115,21 @@ class RoomsDockablePanel(forms.WPFPanel):
 
         root_panel = StackPanel()
         root_panel.Margin = Thickness(10)
+        root_panel.Background = SolidColorBrush(Colors.White)
 
         for group_name in sorted(grouped.keys()):
             group_box = GroupBox()
             group_box.Header = group_name
             group_box.Margin = Thickness(0, 0, 0, 12)
+            group_box.Padding = Thickness(8)
+            group_box.Background = SolidColorBrush(Colors.White)
 
+            # WrapPanel с центрированием — КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
             wrap = WrapPanel()
-            wrap.Margin = Thickness(5)
+            wrap.HorizontalAlignment = HorizontalAlignment.Center  # Центрируем содержимое!
+            wrap.VerticalAlignment = VerticalAlignment.Top
+            wrap.Margin = Thickness(0)
+            wrap.Background = SolidColorBrush(Colors.White)
 
             for room in grouped[group_name]:
                 wrap.Children.Add(self._create_room_button(room))
@@ -131,8 +139,7 @@ class RoomsDockablePanel(forms.WPFPanel):
 
         scroll = ScrollViewer()
         scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        # scroll.VerticalScrollBarWidth = 8.0
-
+        scroll.Background = SolidColorBrush(Colors.White)
         scroll.Content = root_panel
 
         tab.Content = scroll

@@ -99,18 +99,22 @@ from dckpanels.filters_panel import FiltersDockablePanel
 from pyrevit import forms
 from pyrevit import HOST_APP, framework
 from pyrevit import revit, DB, UI
-
+import traceback
 #==================================================
 #Register panels
 #==================================================
-if forms.is_registered_dockable_panel(WorksetsDockablePanel) and forms.is_registered_dockable_panel(FiltersDockablePanel):
-    worksets_panel = forms.register_dockable_panel(WorksetsDockablePanel, default_visible=True)
-    filters_panel = forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
+try:
 
-    HOST_APP.uiapp.ViewActivated += \
-        framework.EventHandler[UI.Events.ViewActivatedEventArgs](worksets_panel.update_worksets)
-    HOST_APP.uiapp.ViewActivated += \
-        framework.EventHandler[UI.Events.ViewActivatedEventArgs](filters_panel.update_filters)
+    if not forms.is_registered_dockable_panel(WorksetsDockablePanel) and not forms.is_registered_dockable_panel(FiltersDockablePanel):
+        worksets_panel = forms.register_dockable_panel(WorksetsDockablePanel, default_visible=True)
+        filters_panel = forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
+
+        HOST_APP.uiapp.ViewActivated += \
+            framework.EventHandler[UI.Events.ViewActivatedEventArgs](worksets_panel.update_worksets)
+        HOST_APP.uiapp.ViewActivated += \
+            framework.EventHandler[UI.Events.ViewActivatedEventArgs](filters_panel.update_filters)
+except:
+    print(traceback.format_exc())
 
 # #==================================================
 # #Update pyrevot.forms.SelectFromList if pyrevit vers < 4.13? 

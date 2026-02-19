@@ -1,43 +1,41 @@
 # -*- coding: utf-8 -*-
 from dckpanels.workset_panel import WorksetsDockablePanel
 from dckpanels.filters_panel import FiltersDockablePanel
-from pyrevit import forms
+from pyrevit import forms, revit
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
 from operator import attrgetter
 import Autodesk.Windows as aw
-# ws_panel_id = WorksetsDockablePanel.panel_id
-# forms.open_dockable_panel(WorksetsDockablePanel.panel_id)
+from System.Collections.Generic import List
+import random, string, time
 # forms.register_dockable_panel(FiltersDockablePanel, default_visible=True)
-forms.open_dockable_panel(FiltersDockablePanel.panel_id)
+# forms.open_dockable_panel(FiltersDockablePanel.panel_id)
 
 # ribbon = aw.ComponentManager.Ribbon
-# pyrevit_tab = next((t for t in ribbon.Tabs if t.Title == "PyRevitExt"), None)
-# cc = 0
-# for panel in pyrevit_tab.Panels:
-#     print(panel.Source.Title)
-#     # for i in dir(panel):
-#     #     print(i)
-#     for item in panel.Source.Items:
-#         print("         {}".format(item))
-#         print("         └── {}".format(item.Text))
+#
+doc = revit.doc
 
-#         if cc == 1:
-#             for i in dir(item):
-#                 print(i)
 
-#             break
-#     if cc == 1:
-#         break
-#     cc += 1
-# from pyrevit import revit
-# uiapp = __revit__
-# panels = uiapp.GetRibbonPanels("PyRevitExt")
-# for p in panels:
-#     print("PANEL: {}".format(p.Name))
-#     for item in p.GetItems():
-#         print("   └── {}".format(item.ItemText))
+# Создаем простое правило на "Комментарии", чтобы фильтр создался
+# provider = ParameterValueProvider(
+#     ElementId(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)
+# )
+# evaluator = FilterStringContains()
+# rule = FilterStringRule(provider, evaluator, "tmp", False)
+# elem_filter = ElementParameterFilter(rule)
+# print(elem_filter)
+filter_name = "Новый фильтр_{}".format(int(time.time() * 1000))
 
+# Подготовка пустых категорий и правила-заглушки (требуется для Revit 2021+)
+cats = List[ElementId]()
+with Transaction(doc, "Panel_Создать фильтр") as t:
+    t.Start()
+    f = ParameterFilterElement.Create(doc, filter_name ,cats)
+    f_id = f.Id
+    t.Commit()
+
+new_filter = doc.GetElement(f_id)
+print(new_filter)
 #-------------------------------------------------------------------------------------------
 # from pyrevit import forms, revit
 # from Autodesk.Revit.DB import *
