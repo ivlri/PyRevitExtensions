@@ -424,26 +424,27 @@ class CreateAndEditFilterHandler(IExternalEventHandler):
 
     def Execute(self, app):
         try:
-            uidoc = app.ActiveUIDocument
-            if not uidoc:
-                return
+            if self.panel._is_template_using():
+                uidoc = app.ActiveUIDocument
+                if not uidoc:
+                    return
 
-            doc = uidoc.Document
+                doc = uidoc.Document
 
-            filter_name = "Новый фильтр_{}".format(int(time.time() * 1000))
+                filter_name = "Новый фильтр_{}".format(int(time.time() * 1000))
 
-            cats = List[ElementId]()
-            with Transaction(doc, "Panel_Создать фильтр") as t:
-                t.Start()
-                f = ParameterFilterElement.Create(doc, filter_name, cats)
-                f_id = f.Id
-                t.Commit()
+                cats = List[ElementId]()
+                with Transaction(doc, "Panel_Создать фильтр") as t:
+                    t.Start()
+                    f = ParameterFilterElement.Create(doc, filter_name, cats)
+                    f_id = f.Id
+                    t.Commit()
 
-            new_filter = doc.GetElement(f_id)
+                new_filter = doc.GetElement(f_id)
 
-            # show_editor expects ParameterFilterElement directly
-            self.panel.edit_rules_handler.filter_element = new_filter
-            self.panel.edit_rules_event.Raise()
+                # show_editor expects ParameterFilterElement directly
+                self.panel.edit_rules_handler.filter_element = new_filter
+                self.panel.edit_rules_event.Raise()
 
         except Exception as ex:
             print(traceback.format_exc())

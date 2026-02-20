@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 """Filter rules editor — modal WPF window for editing ParameterFilterElement rules."""
-
 import traceback
-
 import clr
-
 clr.AddReference("System")
 clr.AddReference("PresentationCore")
 clr.AddReference("PresentationFramework")
@@ -51,7 +48,6 @@ COMMON_OPERATORS = [
 
 _STORAGE_TYPE_MAP = None
 
-
 def _get_storage_type_map():
     """Lazy init to avoid accessing StorageType at import time."""
     global _STORAGE_TYPE_MAP
@@ -64,7 +60,6 @@ def _get_storage_type_map():
         }
     return _STORAGE_TYPE_MAP
 
-
 # =================== Unit Keywords Fallback ===================
 UNIT_KEYWORDS = [
     (["AREA", "ПЛОЩ", "SQUARE", "SURFACE"], "area"),
@@ -74,28 +69,9 @@ UNIT_KEYWORDS = [
     (["TEMPERATURE", "TEMP", "НАГР"], "temperature"),
     (["TIME", "DURATION", "ВРЕМЯ"], "time"),
     (["COST", "PRICE", "СТОИМ"], "cost"),
-    (
-        [
-            "LENGTH",
-            "WIDTH",
-            "HEIGHT",
-            "ELEV",
-            "OFFSET",
-            "DIST",
-            "LONG",
-            "ШИР",
-            "ВЫС",
-            "ДЛИН",
-            "ТОЛЩ",
-            "THICK",
-            "DIAMETER",
-            "RADIUS",
-        ],
-        "length",
-    ),
+    (["LENGTH", "WIDTH", "HEIGHT", "ELEV", "OFFSET", "DIST", "LONG", "ШИР", "ВЫС", "ДЛИН", "ТОЛЩ", "THICK", "DIAMETER", "RADIUS"], "length"),
     (["URL", "PATH", "NAME", "NUMBER", "TEXT", "DESC", "MARK"], "string"),
 ]
-
 
 def _get_unit_type_from_keywords(param_name):
     """Определить тип единицы по ключевым словам в имени параметра."""
@@ -107,111 +83,80 @@ def _get_unit_type_from_keywords(param_name):
             return unit_type
     return None
 
-
 def _get_unit_type_id_from_keyword(param_name):
     """Вернуть ForgeTypeId UnitTypeId по ключевым словам."""
     unit_type = _get_unit_type_from_keywords(param_name)
-    if not unit_type or unit_type == "string":
-        return None
-    attr_map = {
-        "length": "Millimeters",
-        "area": "SquareMeters",
-        "volume": "CubicMeters",
-        "angle": "Degrees",
-        "force": "Newtons",
-        "temperature": "Celsius",
-        "time": "Minutes",
-        "cost": "Currency",
-    }
-    attr_name = attr_map.get(unit_type)
-    if not attr_name:
-        return None
-    return getattr(UnitTypeId, attr_name, None)
-
+    if unit_type == "area":
+        return UnitTypeId.SquareMeters
+    elif unit_type == "volume":
+        return UnitTypeId.CubicMeters
+    elif unit_type == "angle":
+        return UnitTypeId.Degrees
+    elif unit_type == "force":
+        return UnitTypeId.Newtons
+    elif unit_type == "temperature":
+        return UnitTypeId.DegreesCelsius
+    elif unit_type == "time":
+        return UnitTypeId.Minutes
+    elif unit_type == "cost":
+        return UnitTypeId.Currency
+    elif unit_type == "length":
+        return UnitTypeId.Millimeters
+    return None
 
 # =================== Parameter info wrapper ===================
 class ParameterInfo(object):
     """Wraps a parameter ElementId with its display name and storage type."""
-
-    def __init__(
-        self,
-        name,
-        param_id,
-        storage_type="string",
-        spec_type_id=None,
-        unit_type_id=None,
-    ):
+    def __init__(self, name, param_id, storage_type="string", spec_type_id=None, unit_type_id=None):
         self.name = name
         self.param_id = param_id
         self.storage_type = storage_type
         self.spec_type_id = spec_type_id
         self.unit_type_id = unit_type_id  # Новое поле: ForgeTypeId единицы (мм, м², м³)
-
     def __str__(self):
         return self.name
 
-
 class OperatorInfo(object):
     """Wraps operator display name and internal key."""
-
     def __init__(self, display_name, key):
         self.display_name = display_name
         self.key = key
-
     def __str__(self):
         return self.display_name
-
 
 # =================== Data models ===================
 class CategoryCheckItem(INotifyPropertyChanged):
     """Category checkbox item for the editor."""
-
     def __init__(self, name, category_id, is_checked=False):
         self._name = name
         self._category_id = category_id
         self._is_checked = is_checked
         self._propertyChanged = None
-
     @property
     def Name(self):
         return self._name
-
     @property
     def CategoryId(self):
         return self._category_id
-
     @property
     def IsChecked(self):
         return self._is_checked
-
     @IsChecked.setter
     def IsChecked(self, value):
         if self._is_checked != value:
             self._is_checked = value
             self._raise("IsChecked")
-
     def add_PropertyChanged(self, handler):
         self._propertyChanged = EventHandler.Combine(self._propertyChanged, handler)
-
     def remove_PropertyChanged(self, handler):
         self._propertyChanged = EventHandler.Remove(self._propertyChanged, handler)
-
     def _raise(self, prop):
         if self._propertyChanged:
             self._propertyChanged(self, PropertyChangedEventArgs(prop))
 
-
 class RuleItem(INotifyPropertyChanged):
     """Single filter rule in the editor."""
-
-    def __init__(
-        self,
-        param_info=None,
-        operator_info=None,
-        value="",
-        available_params=None,
-        param_type="string",
-    ):
+    def __init__(self, param_info=None, operator_info=None, value="", available_params=None, param_type="string"):
         self._selected_parameter = param_info
         self._selected_operator = operator_info
         self._value = value
@@ -219,7 +164,6 @@ class RuleItem(INotifyPropertyChanged):
         self._available_params = available_params or []
         self._available_operators = self._build_operators(param_type)
         self._propertyChanged = None
-
     def _build_operators(self, param_type):
         """Build operator list based on parameter type."""
         ops = []
@@ -235,11 +179,9 @@ class RuleItem(INotifyPropertyChanged):
             for name, key in COMMON_OPERATORS:
                 ops.append(OperatorInfo(name, key))
         return ops
-
     @property
     def SelectedParameter(self):
         return self._selected_parameter
-
     @SelectedParameter.setter
     def SelectedParameter(self, value):
         if self._selected_parameter != value:
@@ -254,52 +196,41 @@ class RuleItem(INotifyPropertyChanged):
                         self._selected_operator = self._available_operators[0]
                         self._raise("SelectedOperator")
             self._raise("SelectedParameter")
-
     @property
     def SelectedOperator(self):
         return self._selected_operator
-
     @SelectedOperator.setter
     def SelectedOperator(self, value):
         if self._selected_operator != value:
             self._selected_operator = value
             self._raise("SelectedOperator")
             self._raise("IsValueVisible")
-
     @property
     def Value(self):
         return self._value
-
     @Value.setter
     def Value(self, value):
         if self._value != value:
             self._value = value
             self._raise("Value")
-
     @property
     def AvailableParameters(self):
         return self._available_params
-
     @property
     def AvailableOperators(self):
         return self._available_operators
-
     @property
     def IsValueVisible(self):
         if not self._selected_operator:
             return True
         return self._selected_operator.key not in ("has_value", "has_no_value")
-
     def add_PropertyChanged(self, handler):
         self._propertyChanged = EventHandler.Combine(self._propertyChanged, handler)
-
     def remove_PropertyChanged(self, handler):
         self._propertyChanged = EventHandler.Remove(self._propertyChanged, handler)
-
     def _raise(self, prop):
         if self._propertyChanged:
             self._propertyChanged(self, PropertyChangedEventArgs(prop))
-
 
 # =================== Unit conversion helpers ===================
 def _get_definition_data_type(definition):
@@ -314,7 +245,6 @@ def _get_definition_data_type(definition):
         pass
     return None
 
-
 def _get_display_unit(doc, spec_type_id):
     """Get UnitTypeId for document's display unit of a spec, or None."""
     if not doc or not spec_type_id:
@@ -327,7 +257,6 @@ def _get_display_unit(doc, spec_type_id):
     except Exception:
         return None
 
-
 def _parse_number(value):
     """Parse string to float, default 0."""
     try:
@@ -335,52 +264,7 @@ def _parse_number(value):
     except (ValueError, TypeError):
         return 0.0
 
-
-_unit_cache = {}
-
-
-def _build_unit_cache_for_category(doc, category_id):
-    """Cache UnitTypeId for ALL Double params on first element of category."""
-    cid_int = category_id.IntegerValue
-    if cid_int in _unit_cache:
-        return
-    _unit_cache[cid_int] = {}
-    for getter in (
-        lambda: FilteredElementCollector(doc)
-        .OfCategoryId(category_id)
-        .WhereElementIsNotElementType()
-        .FirstElement(),
-        lambda: FilteredElementCollector(doc)
-        .OfCategoryId(category_id)
-        .WhereElementIsElementType()
-        .FirstElement(),
-    ):
-        elem = getter()
-        if not elem:
-            continue
-        for param in elem.Parameters:
-            pid = param.Id.IntegerValue
-            if pid in _unit_cache[cid_int]:
-                continue
-            if param.StorageType != StorageType.Double:
-                continue
-            try:
-                uid = param.GetUnitTypeId()
-                if uid and uid != UnitTypeId.InvalidUnitId:
-                    _unit_cache[cid_int][pid] = uid
-            except Exception:
-                pass
-
-
-def _find_unit_on_element(doc, category_id, target_pid):
-    """Find UnitTypeId from cached element parameters."""
-    _build_unit_cache_for_category(doc, category_id)
-    return _unit_cache.get(category_id.IntegerValue, {}).get(target_pid)
-
-
-def _resolve_unit_type_id(
-    doc, param_id, category_ids, param_name="", spec_type_id=None
-):
+def _resolve_unit_type_id(doc, param_id, category_ids, param_name="", spec_type_id=None):
     """
     Универсальный поиск UnitTypeId:
     1. Через FormatOptions документа (если есть spec_type_id)
@@ -398,69 +282,80 @@ def _resolve_unit_type_id(
                         return unit_id
         except:
             pass
-
-    # 2. Via sample element — iterate elem.Parameters (get_Parameter returns None for many BIPs)
+    
+    # 2. Попытка через сэмпл элемента (для BuiltIn параметров)
     if category_ids:
-        target = param_id.IntegerValue
         for cid in category_ids:
-            unit_id = _find_unit_on_element(doc, cid, target)
-            if unit_id:
-                return unit_id
-
+            try:
+                collector = FilteredElementCollector(doc).OfCategoryId(cid).WhereElementIsNotElementType()
+                elem = collector.FirstElement()
+                if elem:
+                    param = elem.GetParameter(param_id)
+                    if param and param.StorageType == StorageType.Double:
+                        try:
+                            unit_id = param.GetUnitTypeId()
+                            if unit_id and unit_id != UnitTypeId.InvalidUnitId:
+                                return unit_id
+                        except:
+                            pass
+            except:
+                continue
+    
     # 3. Fallback по ключевым словам
     unit_id = _get_unit_type_id_from_keyword(param_name)
     if unit_id:
         return unit_id
-
+    
     return None
-
 
 def _to_internal(value_str, doc, param_info, category_ids=None):
     """Convert display-unit value string to Revit internal units."""
     num = _parse_number(value_str)
-
+    
     # Берем unit_type_id из param_info
     unit_id = param_info.unit_type_id
-
+    
     # Если единица не найдена, пытаемся определить сейчас
     if not unit_id and doc and category_ids:
         unit_id = _resolve_unit_type_id(
-            doc,
-            param_info.param_id,
-            category_ids,
+            doc, 
+            param_info.param_id, 
+            category_ids, 
             param_name=param_info.name,
-            spec_type_id=param_info.spec_type_id,
+            spec_type_id=param_info.spec_type_id
         )
-
+    
+    # Если всё ещё None, но параметр числовой - fallback на миллиметры
     if not unit_id:
-        print("WARN _to_internal: no unit for '{}' (pid={}), saving raw".format(
-            param_info.name, param_info.param_id.IntegerValue))
-        return num
-
+        if param_info.storage_type == "number":
+            # Проверка на Yes/No (Boolean)
+            if param_info.spec_type_id and str(param_info.spec_type_id) == "Boolean":
+                return num
+            unit_id = UnitTypeId.Millimeters
+        else:
+            return num
+    
     try:
         return UnitUtils.ConvertToInternalUnits(num, unit_id)
     except Exception:
         return num
 
-
 def _from_internal(internal_val, doc, unit_type_id, storage_type="number"):
     """Convert Revit internal units to display-unit string."""
     if storage_type in ("string", "element_id"):
         return str(internal_val)
-
+    
     if not unit_type_id:
         return str(internal_val)
-
+    
     try:
         converted = UnitUtils.ConvertFromInternalUnits(internal_val, unit_type_id)
         return "{:.6f}".format(converted).rstrip("0").rstrip(".")
     except Exception:
         return str(internal_val)
 
-
 # =================== Parameter storage info ===================
 _bip_cache = {}
-
 
 def _get_bip_storage_info(doc, param_id, category_ids=None):
     """Get (storage_type_str, spec_type_id) for a BuiltInParameter"""
@@ -472,7 +367,6 @@ def _get_bip_storage_info(doc, param_id, category_ids=None):
     # print("DEBUG_get_bip_storage_info: bip {} | st_str {} | spec {}".format(bip, st_str, spec))
     _bip_cache[int_val] = (st_str, spec)
     return (st_str, spec)
-
 
 def _resolve_bip_via_forge(doc, bip):
     """Resolve storage type and spec via ParameterUtils"""
@@ -487,7 +381,6 @@ def _resolve_bip_via_forge(doc, bip):
         pass
     return ("string", None)
 
-
 def _get_spec_from_forge_id(forge_id, storage_type):
     """Check if ForgeTypeId is a measurable spec (has physical units)"""
     if storage_type != "number" or not forge_id:
@@ -500,7 +393,6 @@ def _get_spec_from_forge_id(forge_id, storage_type):
         pass
     return None
 
-
 def _get_param_storage_info(doc, param_id, category_ids):
     """Return (storage_type_str, spec_type_id, unit_type_id)"""
     try:
@@ -509,13 +401,12 @@ def _get_param_storage_info(doc, param_id, category_ids):
             storage, spec = _get_bip_storage_info(doc, param_id, category_ids)
         else:
             storage, spec = _get_param_storage_info_shared(doc, param_id)
-
+        
         # Определяем unit_type_id
         unit_id = _resolve_unit_type_id(doc, param_id, category_ids, param_name, spec)
         return (storage, spec, unit_id)
     except Exception:
         return ("string", None, None)
-
 
 def _get_param_storage_info_shared(doc, param_id):
     """Resolve storage info for shared/project parameter."""
@@ -535,7 +426,6 @@ def _get_param_storage_info_shared(doc, param_id):
         pass
     return ("string", None)
 
-
 def _resolve_spec_type(doc, param_id, category_ids=None):
     """Get ForgeTypeId spec for a parameter (used during rule parsing)."""
     try:
@@ -553,7 +443,6 @@ def _resolve_spec_type(doc, param_id, category_ids=None):
         pass
     return None
 
-
 # =================== Rule parsing ===================
 def _get_param_name(doc, param_id):
     """Get parameter display name from ElementId."""
@@ -569,7 +458,6 @@ def _get_param_name(doc, param_id):
         return elem.Name
     return "Параметр [{}]".format(int_val)
 
-
 def _get_storage_type(rule):
     """Determine storage type from rule class."""
     if isinstance(rule, FilterStringRule):
@@ -579,7 +467,6 @@ def _get_storage_type(rule):
     if isinstance(rule, FilterElementIdRule):
         return "element_id"
     return "string"
-
 
 def _identify_operator(rule):
     """Parse a FilterRule into an OperatorInfo key."""
@@ -596,7 +483,6 @@ def _identify_operator(rule):
     if isinstance(inner_rule, (FilterDoubleRule, FilterIntegerRule)):
         return _identify_numeric_operator(inner_rule, is_inverse)
     return "str_equals"
-
 
 def _identify_string_operator(inner_rule, is_inverse):
     """Identify string operator key from rule evaluator."""
@@ -617,7 +503,6 @@ def _identify_string_operator(inner_rule, is_inverse):
         key = inverse_map.get(key, key)
     return key
 
-
 def _identify_numeric_operator(inner_rule, is_inverse):
     """Identify numeric operator key from rule evaluator."""
     evaluator = inner_rule.GetEvaluator()
@@ -634,15 +519,7 @@ def _identify_numeric_operator(inner_rule, is_inverse):
         key = "num_not_equals"
     return key
 
-
-def _get_rule_value(
-    rule,
-    doc=None,
-    spec_type_id=None,
-    unit_type_id=None,
-    storage_type="number",
-    param_name="",
-):
+def _get_rule_value(rule, doc=None, spec_type_id=None, unit_type_id=None, storage_type="number", param_name=""):
     """Extract the value from a FilterRule as string"""
     if isinstance(rule, (HasNoValueFilterRule, HasValueFilterRule)):
         return ""
@@ -665,7 +542,6 @@ def _get_rule_value(
         return _resolve_element_name(doc, inner.RuleValue)
     return ""
 
-
 def _resolve_element_name(doc, elem_id):
     """Resolve ElementId to element name."""
     if not doc or not elem_id or elem_id == ElementId.InvalidElementId:
@@ -676,14 +552,12 @@ def _resolve_element_name(doc, elem_id):
     name = getattr(elem, "Name", None)
     return name if name else str(elem_id.IntegerValue)
 
-
 def _get_rule_param_id(rule):
     """Get parameter ElementId from rule."""
     if isinstance(rule, (HasNoValueFilterRule, HasValueFilterRule)):
         return rule.GetRuleParameter()
     inner = rule.GetInnerRule() if isinstance(rule, FilterInverseRule) else rule
     return inner.GetRuleParameter()
-
 
 def parse_element_filter(doc, pfe):
     """Parse ParameterFilterElement into (logic_type, list_of_rule_dicts)."""
@@ -713,7 +587,6 @@ def parse_element_filter(doc, pfe):
         return None
     return (logic, rules_data)
 
-
 def _parse_param_filter(doc, epf, category_ids=None):
     """Parse ElementParameterFilter into list of rule dicts."""
     results = []
@@ -738,7 +611,6 @@ def _parse_param_filter(doc, epf, category_ids=None):
         )
     return results
 
-
 # =================== Rule building ===================
 def _create_evaluator(key):
     """Create evaluator from operator key."""
@@ -754,7 +626,6 @@ def _create_evaluator(key):
         "num_less_eq": FilterNumericLessOrEqual(),
     }
     return mapping.get(key)
-
 
 def _find_element_by_name(doc, name):
     """Find ElementId by element name. Returns InvalidElementId if not found."""
@@ -774,7 +645,6 @@ def _find_element_by_name(doc, name):
         if getattr(elem, "Name", None) == name:
             return elem.Id
     return ElementId.InvalidElementId
-
 
 def _build_single_rule(rule_item, doc=None, category_ids=None):
     """Build a FilterRule from a RuleItem."""
@@ -809,7 +679,6 @@ def _build_single_rule(rule_item, doc=None, category_ids=None):
     #     rule_item.SelectedParameter.name, value, rule_item.SelectedParameter.unit_type_id, num_val))
     return FilterDoubleRule(provider, evaluator, num_val, 1e-6)
 
-
 def _build_eid_rule(provider, key, doc, value):
     """Build ElementId filter rule."""
     eid = _find_element_by_name(doc, value)
@@ -817,7 +686,6 @@ def _build_eid_rule(provider, key, doc, value):
     if key == "eid_not_equals":
         return FilterInverseRule(inner)
     return inner
-
 
 def build_element_filter(rule_items, is_and, doc=None, category_ids=None):
     """Build ElementFilter from list of RuleItems."""
@@ -838,16 +706,13 @@ def build_element_filter(rule_items, is_and, doc=None, category_ids=None):
         return LogicalAndFilter(filters)
     return LogicalOrFilter(filters)
 
-
 # =================== Available parameters ===================
 def get_filterable_parameters(doc, category_ids):
     """Get list of ParameterInfo for categories."""
     params = []
     try:
         cat_list = List[ElementId](category_ids)
-        param_ids = ParameterFilterUtilities.GetFilterableParametersInCommon(
-            doc, cat_list
-        )
+        param_ids = ParameterFilterUtilities.GetFilterableParametersInCommon(doc, cat_list)
         for pid in param_ids:
             name = _get_param_name(doc, pid)
             storage, spec, unit_id = _get_param_storage_info(doc, pid, category_ids)
@@ -856,7 +721,6 @@ def get_filterable_parameters(doc, category_ids):
         print(traceback.format_exc())
     params.sort(key=lambda p: p.name)
     return params
-
 
 # =================== XAML ===================
 EDITOR_XAML = """
@@ -1011,12 +875,10 @@ Width="24" Height="24"/>
 </Grid>
 """
 
-
 # =================== Editor window ===================
 def show_editor(doc, filter_element):
     """Show the filter rules editor window."""
     _bip_cache.clear()
-    _unit_cache.clear()
     parsed = parse_element_filter(doc, filter_element)
     current_cat_ids = list(filter_element.GetCategories())
     all_cat_ids = ParameterFilterUtilities.GetAllFilterableCategories()
@@ -1087,7 +949,6 @@ def show_editor(doc, filter_element):
         window.BtnSave.IsEnabled = False
         window.BtnAddRule.IsEnabled = False
     result = [False]
-
     def on_add_rule(s, e):
         ap = params_ref[0]
         ri = RuleItem(available_params=ap)
@@ -1096,7 +957,6 @@ def show_editor(doc, filter_element):
             if ri.AvailableOperators:
                 ri._selected_operator = ri.AvailableOperators[0]
         _add_rule_row(window, rule_rows, ri, ap, doc, cat_params_cache)
-
     def on_save(s, e):
         conflict = _pre_save_validate(doc, window, rule_rows, cat_params_cache)
         if conflict:
@@ -1104,16 +964,12 @@ def show_editor(doc, filter_element):
             return
         result[0] = True
         window.Close()
-
     def on_cancel(s, e):
         window.Close()
-
     def on_category_search(s, e):
         _filter_categories(window, s.Text)
-
     def on_logic_changed(s, e):
         _update_prefixes(window, rule_rows)
-
     window.BtnAddRule.Click += on_add_rule
     window.BtnSave.Click += on_save
     window.BtnCancel.Click += on_cancel
@@ -1127,18 +983,12 @@ def show_editor(doc, filter_element):
         doc, filter_element, window, all_categories, rule_rows, cat_params_cache
     )
 
-
-def _find_param(
-    available_params, param_id, fallback_name, spec_type_id=None, unit_type_id=None
-):
+def _find_param(available_params, param_id, fallback_name, spec_type_id=None, unit_type_id=None):
     """Find ParameterInfo by id, or create a fallback."""
     for p in available_params:
         if p.param_id == param_id:
             return p
-    return ParameterInfo(
-        fallback_name, param_id, spec_type_id=spec_type_id, unit_type_id=unit_type_id
-    )
-
+    return ParameterInfo(fallback_name, param_id, spec_type_id=spec_type_id, unit_type_id=unit_type_id)
 
 def _iter_category_checkboxes(window):
     """Iterate all category CheckBox widgets from the nested group structure."""
@@ -1152,7 +1002,6 @@ def _iter_category_checkboxes(window):
                 tag = getattr(cb, "Tag", None)
                 if tag and hasattr(tag, "CategoryId"):
                     yield cb
-
 
 def _filter_categories(window, search_text):
     """Show/hide category checkboxes and letter groups based on search text."""
@@ -1180,7 +1029,6 @@ def _filter_categories(window, search_text):
         else:
             group_panel.Visibility = WinNS.Visibility.Visible
 
-
 def _get_cat_param_ids(doc, cat_id, cache):
     """Get parameter id set for a category (lazy cached)."""
     key = cat_id.IntegerValue
@@ -1188,7 +1036,6 @@ def _get_cat_param_ids(doc, cat_id, cache):
         params = get_filterable_parameters(doc, [cat_id])
         cache[key] = set(p.param_id.IntegerValue for p in params)
     return cache[key]
-
 
 def _get_params_union(doc, category_ids, cache):
     """Get union of parameters across all categories."""
@@ -1201,7 +1048,6 @@ def _get_params_union(doc, category_ids, cache):
             if pid_key not in seen:
                 seen[pid_key] = p
     return sorted(seen.values(), key=lambda p: p.name)
-
 
 def _populate_categories(window, categories, doc, params_ref, rule_rows, cache):
     """Add category checkboxes grouped by first letter."""
@@ -1235,22 +1081,18 @@ def _populate_categories(window, categories, doc, params_ref, rule_rows, cache):
             cb.Tag = cat_item
             cb.Margin = WinNS.Thickness(0, 2, 12, 2)
             cb.FontSize = 11
-
             def make_handler(ci):
                 def handler(s, e):
                     ci.IsChecked = s.IsChecked
                     _on_categories_changed(
                         window, categories, doc, params_ref, rule_rows, cache
                     )
-
                 return handler
-
             cb.Checked += make_handler(cat_item)
             cb.Unchecked += make_handler(cat_item)
             wrap.Children.Add(cb)
         group_panel.Children.Add(wrap)
         panel.Children.Add(group_panel)
-
 
 def _on_categories_changed(window, categories, doc, params_ref, rule_rows, cache):
     """Refresh available parameters (union) when categories change."""
@@ -1275,7 +1117,6 @@ def _on_categories_changed(window, categories, doc, params_ref, rule_rows, cache
                     break
         ri._available_params = new_params
     _refresh_category_availability(window, doc, rule_rows, cache)
-
 
 def _refresh_category_availability(window, doc, rule_rows, cache):
     """Disable categories that lack parameters used in current rules."""
@@ -1308,7 +1149,6 @@ def _refresh_category_availability(window, doc, rule_rows, cache):
             child.IsEnabled = True
             child.ToolTip = None
 
-
 def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cache=None):
     """Add a rule row with stable substring search using CollectionView."""
     grid = XamlReader.Load(XmlReader.Create(StringReader(RULE_ROW_XAML)))
@@ -1327,7 +1167,6 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
     param_combo.IsTextSearchEnabled = False
     view = CollectionViewSource.GetDefaultView(param_combo.ItemsSource)
     initializing = [True]
-
     def filter_func(item):
         if initializing[0]:
             return True
@@ -1335,9 +1174,7 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
         if not text:
             return True
         return text in item.name.lower()
-
     view.Filter = lambda item: filter_func(item)
-
     def on_text_changed(sender, args):
         if initializing[0]:
             return
@@ -1347,7 +1184,6 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
         editable_tb = param_combo.Template.FindName("PART_EditableTextBox", param_combo)
         if editable_tb:
             editable_tb.TextChanged += on_text_changed
-
     if rule_item.SelectedParameter:
         param_combo.SelectedItem = rule_item.SelectedParameter
     initializing[0] = False
@@ -1360,7 +1196,6 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
     if not rule_item.IsValueVisible:
         value_box.IsEnabled = False
         value_box.Text = ""
-
     def on_param_changed(s, e):
         sel = param_combo.SelectedItem
         if not sel:
@@ -1373,7 +1208,6 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
             operator_combo.SelectedIndex = 0
         if cache is not None:
             _refresh_category_availability(window, doc, rule_rows, cache)
-
     def on_operator_changed(s, e):
         sel = operator_combo.SelectedItem
         if not sel:
@@ -1383,16 +1217,13 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
         value_box.IsEnabled = not no_value
         if no_value:
             value_box.Text = ""
-
     def on_value_changed(s, e):
         rule_item.Value = value_box.Text
-
     param_combo.SelectionChanged += on_param_changed
     operator_combo.SelectionChanged += on_operator_changed
     value_box.TextChanged += on_value_changed
     entry = (rule_item, grid)
     rule_rows.append(entry)
-
     def on_remove(s, e):
         if entry in rule_rows:
             rule_rows.remove(entry)
@@ -1400,10 +1231,8 @@ def _add_rule_row(window, rule_rows, rule_item, available_params, doc=None, cach
             _update_prefixes(window, rule_rows)
             if cache is not None:
                 _refresh_category_availability(window, doc, rule_rows, cache)
-
     btn_remove.Click += on_remove
     window.RulesPanel.Children.Add(grid)
-
 
 def _update_prefixes(window, rule_rows):
     """Update ЕСЛИ/И/ИЛИ prefixes based on logic mode."""
@@ -1413,7 +1242,6 @@ def _update_prefixes(window, rule_rows):
         prefix = grid.FindName("PrefixText")
         if prefix:
             prefix.Text = "ЕСЛИ" if i == 0 else conjunction
-
 
 def _pre_save_validate(doc, window, rule_rows, cache):
     """Validate before saving."""
@@ -1433,7 +1261,6 @@ def _pre_save_validate(doc, window, rule_rows, cache):
             ri._selected_operator = operator_combo.SelectedItem
         rule_items.append(ri)
     return _validate_rules_vs_categories(doc, cat_ids, rule_items, cache)
-
 
 def _save_filter(doc, filter_element, window, all_categories, rule_rows, cache=None):
     """Save changes to the filter element."""
@@ -1474,7 +1301,6 @@ def _save_filter(doc, filter_element, window, all_categories, rule_rows, cache=N
     except Exception:
         print(traceback.format_exc())
         return False
-
 
 def _validate_rules_vs_categories(doc, cat_ids, rule_items, cache):
     """Check that all rule parameters exist in all selected categories."""
